@@ -8,7 +8,7 @@ This repository is a small local finance dashboard served by a Node.js HTTP serv
 - `styles.css` contains all visual styling and responsive layout rules.
 - `app.js` contains client-side state, rendering, event handling, and API calls.
 - `server.js` serves static files and exposes `/api/data` for reading and saving data.
-- `finance-data.json` is persisted user data; avoid overwriting it during experiments.
+- `finance.json` is persisted user data; avoid overwriting it during experiments.
 - `start.bat` starts the app on Windows using the bundled Codex Node runtime when available.
 
 There is no separate `src/`, `tests/`, or assets directory; keep new files at the root only when they fit this layout.
@@ -38,7 +38,7 @@ No automated tests are currently configured. For changes, perform manual verific
 
 1. Run `start.bat` or `node server.js`.
 2. Open `http://127.0.0.1:8780/`.
-3. Confirm the dashboard loads, data is read from `finance-data.json`, and saving updates the file through `/api/data`.
+3. Confirm the dashboard loads, data is read from `finance.json`, and saving updates the file through `/api/data`.
 
 If tests are added later, place them in a `tests/` directory and document the run command here.
 
@@ -51,7 +51,7 @@ Pull requests should include:
 - A short description of the user-visible change.
 - Manual test steps and results.
 - Screenshots for UI changes.
-- Notes about any changes to `finance-data.json` or data format.
+- Notes about any changes to `finance.json` or data format.
 
 ## Security & Configuration Tips
 
