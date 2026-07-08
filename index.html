@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260708-37" />
+    <link rel="stylesheet" href="styles.css?v=20260709-38" />
   </head>
   <body>
     <main class="app-shell">
@@ -39,6 +39,13 @@
             </svg>
             История
           </button>
+          <button class="side-nav-item" type="button" data-side-tab="settings">
+            <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+              <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.1 2.1 0 0 1-2.97 2.97l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.09 1.65V21.3a2.1 2.1 0 0 1-4.2 0v-.07a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-1.98.36l-.05.05a2.1 2.1 0 0 1-2.97-2.97l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.09H2.9a2.1 2.1 0 0 1 0-4.2h.07A1.8 1.8 0 0 0 4.6 8.62a1.8 1.8 0 0 0-.36-1.98l-.05-.05a2.1 2.1 0 0 1 2.97-2.97l.05.05a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.09-1.65V2.3a2.1 2.1 0 0 1 4.2 0v.07a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.1 2.1 0 0 1 2.97 2.97l-.05.05a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.09h.07a2.1 2.1 0 0 1 0 4.2h-.07A1.8 1.8 0 0 0 19.4 15Z" />
+            </svg>
+            Настройки
+          </button>
         </nav>
       </aside>
 
@@ -62,15 +69,6 @@
               <select id="monthInput"></select>
             </label>
             <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
-          </div>
-          <div class="github-panel">
-            <label>
-              GitHub token
-              <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
-            </label>
-            <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
-            <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
-            <span class="github-status" id="githubStatus">Токен не подключен</span>
           </div>
         </div>
 
@@ -128,6 +126,27 @@
             </thead>
             <tbody id="historyRows"></tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="panel" id="settingsPanel">
+        <div class="section-head">
+          <div>
+            <h2>Настройки</h2>
+            <p>Подключите GitHub token для сохранения данных в finance.json.</p>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="github-panel">
+            <label>
+              GitHub token
+              <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
+            </label>
+            <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
+            <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
+            <span class="github-status" id="githubStatus">Токен не подключен</span>
+          </div>
         </div>
       </section>
 
@@ -208,6 +227,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260709-50"></script>
+    <script src="app.js?v=20260709-51"></script>
   </body>
 </html>

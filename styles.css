@@ -414,7 +414,8 @@ h2 {
 }
 
 #assetsPanel .section-head,
-#historyPanel .section-head {
+#historyPanel .section-head,
+#settingsPanel .section-head {
   margin-bottom: 10px;
 }
 
@@ -469,10 +470,8 @@ h2 {
 
 .month-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
   margin: 0 0 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -505,23 +504,6 @@ h2 {
   min-height: 36px;
 }
 
-.file-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  max-width: 220px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 11px;
-  background: #ffffff;
-  color: var(--muted-strong);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .month-picker input {
   width: 108px;
 }
@@ -534,8 +516,15 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
+}
+
+.settings-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--surface-soft);
 }
 
 .github-panel label {
