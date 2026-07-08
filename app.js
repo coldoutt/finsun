@@ -412,7 +412,10 @@ function renderAssets() {
             <input data-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
           </td>
           <td class="amount-column">
-            <input data-field="amount" data-index="${index}" inputmode="numeric" value="${formatPlainNumber(row.amount)}" />
+            <span class="asset-amount-input">
+              <input data-field="amount" data-index="${index}" inputmode="numeric" value="${formatPlainNumber(row.amount)}" />
+              <span aria-hidden="true">₽</span>
+            </span>
           </td>
           <td class="actions-column">
             <div class="category-actions">

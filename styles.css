@@ -579,9 +579,9 @@ th {
 }
 
 td {
-  height: 48px;
+  height: 52px;
   border-top: 1px solid var(--line);
-  padding: 7px 12px;
+  padding: 8px 12px;
   background: #ffffff;
   color: #202622;
   font-size: 16px;
@@ -622,13 +622,15 @@ td {
 
 .asset-table th,
 .asset-table td,
-.summary-table th {
+.history-table th,
+.history-table td {
   border-right: 1px solid var(--line);
 }
 
 .asset-table th:last-child,
 .asset-table td:last-child,
-.summary-table th:last-child {
+.history-table th:last-child,
+.history-table td:last-child {
   border-right: 0;
 }
 
@@ -645,10 +647,6 @@ td {
   border-top-color: var(--line-strong);
   color: var(--ink);
   font-weight: 850;
-}
-
-.asset-table .asset-category-row td {
-  padding: 12px;
 }
 
 .asset-table .asset-item-row td,
@@ -671,7 +669,8 @@ td {
   background: transparent;
 }
 
-.asset-toggle {
+.asset-toggle,
+.history-toggle {
   display: grid;
   place-items: center;
   width: 22px;
@@ -767,11 +766,13 @@ td {
   width: 100%;
   border-color: transparent;
   background: transparent;
-  color: var(--ink);
+  color: #202622;
 }
 
 .asset-item-row td:first-child input[data-field="name"] {
   padding-left: 28px;
+  color: var(--muted-strong);
+  font-weight: 650;
 }
 
 .asset-table select {
@@ -788,7 +789,25 @@ td {
 }
 
 .asset-table .amount-column input {
+  width: auto;
+  min-width: 0;
   text-align: right;
+}
+
+.asset-amount-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 100%;
+  color: #202622;
+  white-space: nowrap;
+}
+
+.asset-amount-input input {
+  flex: 0 1 auto;
+  max-width: 150px;
+  padding-right: 0;
 }
 
 .share-column {
@@ -886,7 +905,7 @@ tfoot td {
 }
 
 .history-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   width: 100%;
