@@ -299,25 +299,16 @@ h2 {
 .metric-label {
   position: absolute;
   left: 64px;
-  right: 42px;
+  right: 20px;
   top: 21px;
   display: block;
   color: var(--muted-strong);
-  font-size: 15px;
-  font-weight: 750;
+  font-size: 16px;
+  font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.metric-arrow {
-  position: absolute;
-  right: 20px;
-  top: 20px;
-  color: #a8b1ab;
-  font-size: 17px;
-  line-height: 1;
 }
 
 .metric strong {
