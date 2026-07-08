@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Финансовые итоги</title>
+    <link rel="stylesheet" href="styles.css?v=20260708-37" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Навигация">
+        <div class="sidebar-brand" aria-label="Финансовые итоги">
+          <span class="brand-mark" aria-hidden="true">
+            <span></span>
+          </span>
+          <strong>Финансы</strong>
+        </div>
+        <nav class="side-nav" aria-label="Основные разделы">
+          <button class="side-nav-item is-active" type="button" data-side-tab="dashboard">
+            <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 19V5" />
+              <path d="M4 19h16" />
+              <path class="icon-accent" d="m8 15 4-4 3 2 5-6" />
+            </svg>
+            Дашборд
+          </button>
+          <button class="side-nav-item" type="button" data-side-tab="assets">
+            <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 8V7a5 5 0 0 1 10 0v1" />
+              <path d="M6 8h12a2 2 0 0 1 2 2v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-8a2 2 0 0 1 2-2Z" />
+            </svg>
+            Активы
+          </button>
+          <button class="side-nav-item" type="button" data-side-tab="history">
+            <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="4" width="14" height="16" rx="3" />
+              <path d="M8 9h8" />
+              <path d="M8 14h8" />
+            </svg>
+            История
+          </button>
+        </nav>
+      </aside>
+
+      <div class="main-content">
+      <section class="panel" id="assetsPanel">
+        <div class="section-head">
+          <div>
+            <h2>Итоги месяца</h2>
+            <p>Заполните суммы по активам и сохраните снимок месяца.</p>
+          </div>
+        </div>
+
+        <div class="month-toolbar">
+          <div class="month-picker">
+            <label>
+              Год
+              <input id="yearInput" type="number" min="2000" max="2100" />
+            </label>
+            <label>
+              Месяц
+              <select id="monthInput"></select>
+            </label>
+            <button class="ghost-button" id="openFileBtn" type="button">Открыть JSON</button>
+            <span class="file-status" id="fileStatus">Файл не выбран</span>
+            <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <datalist id="categorySuggestions"></datalist>
+          <table class="asset-table">
+            <colgroup>
+              <col class="asset-name-col" />
+              <col class="asset-amount-col" />
+              <col class="asset-actions-col" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Подробно</th>
+                <th class="amount-column">Активы</th>
+                <th class="actions-column">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="assetRows"></tbody>
+            <tfoot>
+              <tr>
+                <td>Итого</td>
+                <td id="assetTotalCell" class="amount-column">0 ₽</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="asset-actions">
+          <button class="secondary-button" id="addRowBtn" type="button">Добавить строку</button>
+        </div>
+      </section>
+
+      <section class="panel" id="historyPanel">
+        <div class="section-head">
+          <div>
+            <h2>История</h2>
+            <p>Годовые итоги и сохраненные месяцы в одной таблице.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="summary-table history-table">
+            <colgroup>
+              <col class="history-period-col" />
+              <col class="history-assets-col" />
+              <col class="history-change-col" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Период</th>
+                <th>Активы</th>
+                <th>Изменение</th>
+              </tr>
+            </thead>
+            <tbody id="historyRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel is-visible" id="dashboardPanel">
+        <section class="summary-grid" aria-label="Сводка">
+          <article class="metric metric-total">
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 18V9" />
+                <path d="M12 18V5" />
+                <path d="M19 18v-7" />
+                <path d="m5 11 7-6 7 4" />
+              </svg>
+            </span>
+            <span class="metric-label">Итого активов</span>
+            <span class="metric-arrow" aria-hidden="true">↗</span>
+            <strong id="totalMetric">0 ₽</strong>
+          </article>
+          <article class="metric metric-year">
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 17h16" />
+                <path d="M7 14l4-4 3 3 5-7" />
+                <path d="M15 6h4v4" />
+              </svg>
+            </span>
+            <span class="metric-label">Изменение за год</span>
+            <span class="metric-arrow" aria-hidden="true">↗</span>
+            <strong id="yearDeltaMetric">0 ₽</strong>
+          </article>
+          <article class="metric metric-month">
+            <span class="metric-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <rect x="4" y="5" width="16" height="15" rx="3" />
+                <path d="M8 3v4" />
+                <path d="M16 3v4" />
+                <path d="M8 14l3 3 5-6" />
+              </svg>
+            </span>
+            <span class="metric-label">Изменение за месяц</span>
+            <span class="metric-arrow" aria-hidden="true">↗</span>
+            <strong id="monthDeltaMetric">0 ₽</strong>
+          </article>
+        </section>
+        <div class="section-head">
+          <div>
+            <h2>Динамика активов</h2>
+            <p>График строится по всем сохраненным месяцам.</p>
+          </div>
+          <div class="chart-controls">
+            <button class="segmented is-active" type="button" data-chart="bar">Столбцы</button>
+            <button class="segmented" type="button" data-chart="line">Линия</button>
+            <div class="year-dropdown" id="yearDropdown">
+              <button class="year-dropdown-button" id="yearDropdownBtn" type="button" aria-expanded="false" aria-controls="chartYearFilters">Годы</button>
+              <div class="year-filter" id="chartYearFilters" aria-label="Годы на графике" hidden></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-layout">
+          <div class="chart-shell">
+            <canvas id="totalChart" height="380"></canvas>
+            <div class="chart-tooltip" id="chartTooltip" hidden></div>
+          </div>
+        </div>
+        <section class="asset-structure" aria-label="Структура активов">
+          <div class="structure-head">
+            <div>
+              <h3>Структура активов</h3>
+              <p id="assetStructurePeriod">Последний сохраненный месяц</p>
+            </div>
+            <strong id="assetStructureTotal">0 ₽</strong>
+          </div>
+          <div class="structure-bars" id="assetStructureRows"></div>
+          <div class="structure-tooltip" id="structureTooltip" hidden></div>
+        </section>
+      </section>
+      </div>
+    </main>
+
+    <script src="app.js?v=20260709-46"></script>
+  </body>
+</html>
