@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260709-39" />
+    <link rel="stylesheet" href="styles.css?v=20260709-40" />
   </head>
   <body>
     <main class="app-shell">
@@ -58,20 +58,6 @@
           </div>
         </div>
 
-        <div class="month-toolbar">
-          <div class="month-picker">
-            <label>
-              Год
-              <input id="yearInput" type="number" min="2000" max="2100" />
-            </label>
-            <label>
-              Месяц
-              <select id="monthInput"></select>
-            </label>
-            <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
-          </div>
-        </div>
-
         <div class="table-wrap">
           <datalist id="categorySuggestions"></datalist>
           <table class="asset-table">
@@ -98,8 +84,23 @@
           </table>
         </div>
 
-        <div class="asset-actions">
-          <button class="secondary-button" id="addRowBtn" type="button">Добавить строку</button>
+        <div class="asset-control-bubble">
+          <div class="asset-control-section">
+            <button class="secondary-button" id="addRowBtn" type="button">Добавить строку</button>
+          </div>
+          <div class="asset-control-section month-save-section">
+            <div class="month-picker">
+              <label>
+                Год
+                <input id="yearInput" type="number" min="2000" max="2100" />
+              </label>
+              <label>
+                Месяц
+                <select id="monthInput"></select>
+              </label>
+              <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -226,6 +227,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260709-52"></script>
+    <script src="app.js?v=20260709-53"></script>
   </body>
 </html>
