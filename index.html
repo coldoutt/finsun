@@ -63,6 +63,15 @@
             </label>
             <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
           </div>
+          <div class="github-panel">
+            <label>
+              GitHub token
+              <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
+            </label>
+            <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
+            <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
+            <span class="github-status" id="githubStatus">Токен не подключен</span>
+          </div>
         </div>
 
         <div class="table-wrap">
@@ -199,6 +208,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260709-48"></script>
+    <script src="app.js?v=20260709-49"></script>
   </body>
 </html>

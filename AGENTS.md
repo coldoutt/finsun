@@ -7,8 +7,8 @@ This repository is a small local finance dashboard served by a Node.js HTTP serv
 - `index.html` defines the application shell and UI markup.
 - `styles.css` contains all visual styling and responsive layout rules.
 - `app.js` contains client-side state, rendering, event handling, and API calls.
-- `server.js` serves static files and exposes `/api/data` for reading and saving data.
-- `api/data.js` is the Vercel serverless endpoint that reads and writes `finance.json` through the GitHub API.
+- `server.js` serves static files and exposes `/api/data` for local reading and saving data.
+- The browser can also save `finance.json` directly through the GitHub REST API using a user-provided token stored in localStorage.
 - `finance.json` is persisted user data; avoid overwriting it during experiments.
 - `start.bat` starts the app on Windows using the bundled Codex Node runtime when available.
 
@@ -39,7 +39,7 @@ No automated tests are currently configured. For changes, perform manual verific
 
 1. Run `start.bat` or `node server.js`.
 2. Open `http://127.0.0.1:8780/`.
-3. Confirm the dashboard loads, data is read from `finance.json`, and saving updates the file through `/api/data`.
+3. Confirm the dashboard loads, data is read from `finance.json`, and saving updates the file through the GitHub REST API when a token is configured.
 
 If tests are added later, place them in a `tests/` directory and document the run command here.
 

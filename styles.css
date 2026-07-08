@@ -469,7 +469,10 @@ h2 {
 
 .month-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0 0 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -525,6 +528,52 @@ h2 {
 
 .month-picker select {
   width: 150px;
+}
+
+.github-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.github-panel label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.github-panel input {
+  width: 210px;
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.github-panel .secondary-button,
+.github-panel .ghost-button {
+  min-height: 36px;
+}
+
+.github-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 11px;
+  background: #ffffff;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .table-wrap {
@@ -1258,6 +1307,11 @@ tfoot td {
     width: 100%;
   }
 
+  .github-panel {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   th,
   td,
   .asset-table input,
@@ -1317,9 +1371,13 @@ tfoot td {
 
   .month-picker input,
   .month-picker select,
+  .github-panel,
+  .github-panel input,
   .month-picker .primary-button,
   .month-picker .ghost-button,
-  .file-status {
+  .github-panel .secondary-button,
+  .github-panel .ghost-button,
+  .github-status {
     width: 100%;
     max-width: none;
   }
