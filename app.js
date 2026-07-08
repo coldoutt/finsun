@@ -1,5 +1,10 @@
 const STORAGE_KEY = "finance-summary-v1";
-const DATA_API = window.FINANCE_API_URL || "/api/data";
+const GITHUB_TOKEN_KEY = "finance-github-token";
+const GITHUB_OWNER = "coldoutt";
+const GITHUB_REPO = "finance";
+const GITHUB_BRANCH = "main";
+const GITHUB_DATA_PATH = "finance.json";
+const DATA_API = "/api/data";
 
 const months = [
   "Январь",
@@ -186,6 +191,10 @@ const els = {
   assetStructurePeriod: document.querySelector("#assetStructurePeriod"),
   assetStructureTotal: document.querySelector("#assetStructureTotal"),
   saveNotice: document.querySelector("#saveNotice"),
+  githubTokenInput: document.querySelector("#githubTokenInput"),
+  saveGithubTokenBtn: document.querySelector("#saveGithubTokenBtn"),
+  clearGithubTokenBtn: document.querySelector("#clearGithubTokenBtn"),
+  githubStatus: document.querySelector("#githubStatus"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -194,6 +203,7 @@ async function init() {
   fillMonthSelect();
   setCurrentMonth();
   bindEvents();
+  hydrateGithubToken();
   state = await loadState();
   loadSelectedMonth();
   renderAll();
@@ -221,6 +231,8 @@ function bindEvents() {
   });
 
   document.querySelector("#saveMonthBtn").addEventListener("click", saveSelectedMonth);
+  els.saveGithubTokenBtn?.addEventListener("click", saveGithubToken);
+  els.clearGithubTokenBtn?.addEventListener("click", clearGithubToken);
   document.querySelector("#addRowBtn").addEventListener("click", addAssetRow);
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
@@ -309,7 +321,7 @@ async function saveSelectedMonth() {
     showSaveNotice(result?.pushed ? "Данные сохранены и отправлены в GitHub" : "Данные сохранены");
   } catch (error) {
     console.error("Save failed", error);
-    showSaveNotice("Не удалось сохранить данные", "error");
+    showSaveNotice(error.message || "Не удалось сохранить данные", "error");
   }
 }
 
@@ -977,7 +989,61 @@ function addAssetRow() {
   renderAssets();
 }
 
+function hydrateGithubToken() {
+  const token = getGithubToken();
+  if (els.githubTokenInput && token) {
+    els.githubTokenInput.value = token;
+  }
+  updateGithubStatus();
+}
+
+async function saveGithubToken() {
+  const token = els.githubTokenInput?.value.trim();
+  if (!token) {
+    showSaveNotice("Введите GitHub token", "error");
+    return;
+  }
+
+  localStorage.setItem(GITHUB_TOKEN_KEY, token);
+  updateGithubStatus();
+
+  try {
+    const remoteState = await loadStateFromGitHub();
+    state = remoteState;
+    loadSelectedMonth();
+    renderAll();
+    showSaveNotice("GitHub token сохранен");
+  } catch (error) {
+    console.error("GitHub token check failed", error);
+    showSaveNotice("Токен сохранен, но доступ к finance.json не проверен", "error");
+  }
+}
+
+function clearGithubToken() {
+  localStorage.removeItem(GITHUB_TOKEN_KEY);
+  if (els.githubTokenInput) els.githubTokenInput.value = "";
+  updateGithubStatus();
+  showSaveNotice("GitHub token удален");
+}
+
+function updateGithubStatus() {
+  if (!els.githubStatus) return;
+  els.githubStatus.textContent = getGithubToken() ? "GitHub подключен" : "Токен не подключен";
+}
+
+function getGithubToken() {
+  return localStorage.getItem(GITHUB_TOKEN_KEY) || "";
+}
+
 async function loadState() {
+  if (getGithubToken()) {
+    try {
+      return await loadStateFromGitHub();
+    } catch (error) {
+      console.error("GitHub load failed", error);
+    }
+  }
+
   try {
     const response = await fetch(DATA_API, { cache: "no-store" });
     if (response.ok) {
@@ -1026,18 +1092,98 @@ function loadBrowserState() {
 async function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
-  if (location.protocol === "file:") {
-    throw new Error("Saving to GitHub works only through the local server");
-  }
-
-  const response = await fetch(DATA_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(state),
-  });
-  if (!response.ok) throw new Error(await response.text());
+  const result = await saveStateToGitHub(state);
   fileStorageAvailable = true;
-  return response.json();
+  return result;
+}
+
+async function loadStateFromGitHub() {
+  const file = await getGitHubFile();
+  return normalizeState(file.data);
+}
+
+async function saveStateToGitHub(value) {
+  const token = getGithubToken();
+  if (!token) throw new Error("Добавьте GitHub token");
+
+  const current = await getGitHubFile();
+  const pretty = `${JSON.stringify(value, null, 2)}\n`;
+  const response = await fetch(githubContentUrl(), {
+    method: "PUT",
+    headers: githubHeaders(token),
+    body: JSON.stringify({
+      message: "Save finance data",
+      content: encodeBase64(pretty),
+      sha: current.sha,
+      branch: GITHUB_BRANCH,
+    }),
+  });
+
+  if (!response.ok) throw new Error(await getGitHubError(response));
+  return { ok: true, pushed: true, commit: (await response.json()).commit?.sha || null };
+}
+
+async function getGitHubFile() {
+  const token = getGithubToken();
+  if (!token) throw new Error("Добавьте GitHub token");
+
+  const response = await fetch(`${githubContentUrl()}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, {
+    headers: githubHeaders(token),
+    cache: "no-store",
+  });
+
+  if (!response.ok) throw new Error(await getGitHubError(response));
+
+  const file = await response.json();
+  const text = decodeBase64(file.content || "");
+  return {
+    sha: file.sha,
+    data: JSON.parse(text),
+  };
+}
+
+function githubContentUrl() {
+  const encodedPath = GITHUB_DATA_PATH.split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+  return `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodedPath}`;
+}
+
+function githubHeaders(token) {
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+async function getGitHubError(response) {
+  try {
+    const error = await response.json();
+    if (response.status === 401 || response.status === 403) return "Нет доступа к GitHub. Проверьте token и право Contents: Read and write";
+    if (response.status === 404) return "Файл finance.json или репозиторий не найден";
+    if (response.status === 409) return "Файл изменился в GitHub. Обновите страницу и попробуйте снова";
+    return error.message || `GitHub API error: ${response.status}`;
+  } catch {
+    return `GitHub API error: ${response.status}`;
+  }
+}
+
+function encodeBase64(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function decodeBase64(value) {
+  const binary = atob(value.replace(/\n/g, ""));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 function showSaveNotice(message, tone = "success") {

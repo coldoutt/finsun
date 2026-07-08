@@ -18,9 +18,10 @@ http://127.0.0.1:8780/
 - Порты 8795, 8796, 8797 и похожие были временными портами для проверки и больше не нужны.
 - Если открыть index.html напрямую без start.bat, браузер не сможет сохранять данные в файл на компьютере.
 
-Vercel:
-- Для сохранения данных с сайта разверните проект на Vercel.
-- В Settings -> Environment Variables добавьте GITHUB_TOKEN.
-- Токен GitHub должен иметь доступ к репозиторию coldoutt/finance и право Contents: Read and write.
-- Не добавляйте GitHub-токен в app.js или index.html.
-- По умолчанию серверная функция сохраняет данные в finance.json ветки main.
+GitHub:
+- Для сохранения данных прямо с сайта создайте fine-grained GitHub token.
+- Repository access: только coldoutt/finance.
+- Permissions: Contents -> Read and write.
+- Вставьте token в поле GitHub token на вкладке Активы и нажмите Сохранить токен.
+- Token хранится только в localStorage текущего браузера, не добавляйте его в app.js или index.html.
+- При сохранении месяца приложение напрямую обновляет finance.json через GitHub REST API.
