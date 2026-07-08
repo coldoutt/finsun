@@ -1,5 +1,5 @@
 const STORAGE_KEY = "finance-summary-v1";
-const DATA_API = "/api/data";
+const DATA_API = window.FINANCE_API_URL || "/api/data";
 
 const months = [
   "Январь",

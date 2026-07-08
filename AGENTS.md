@@ -8,6 +8,7 @@ This repository is a small local finance dashboard served by a Node.js HTTP serv
 - `styles.css` contains all visual styling and responsive layout rules.
 - `app.js` contains client-side state, rendering, event handling, and API calls.
 - `server.js` serves static files and exposes `/api/data` for reading and saving data.
+- `api/data.js` is the Vercel serverless endpoint that reads and writes `finance.json` through the GitHub API.
 - `finance.json` is persisted user data; avoid overwriting it during experiments.
 - `start.bat` starts the app on Windows using the bundled Codex Node runtime when available.
 
