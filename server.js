@@ -1,10 +1,13 @@
 const http = require("node:http");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
 
 const root = __dirname;
-const dataFile = path.join(root, "finance-data.json");
+const dataFile = path.join(root, "finance.json");
 const port = 8780;
+const execFileAsync = promisify(execFile);
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -78,7 +81,22 @@ async function saveData(request, response) {
   const tempFile = `${dataFile}.tmp`;
   await fs.writeFile(tempFile, pretty, "utf8");
   await fs.rename(tempFile, dataFile);
-  sendJson(response, 200, { ok: true });
+  const gitResult = await syncDataToGitHub();
+  sendJson(response, 200, { ok: true, ...gitResult });
+}
+
+async function syncDataToGitHub() {
+  await runGit(["add", "finance.json"]);
+  const status = await runGit(["status", "--porcelain", "--", "finance.json"]);
+  if (!status.stdout.trim()) return { pushed: false, message: "No data changes" };
+
+  await runGit(["commit", "-m", "Save finance data"]);
+  await runGit(["push", "origin", "main"]);
+  return { pushed: true };
+}
+
+function runGit(args) {
+  return execFileAsync("git", args, { cwd: root, windowsHide: true });
 }
 
 async function sendStatic(pathname, response) {

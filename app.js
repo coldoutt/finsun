@@ -1,8 +1,5 @@
 const STORAGE_KEY = "finance-summary-v1";
 const DATA_API = "/api/data";
-const FILE_HANDLE_DB = "finance-file-storage";
-const FILE_HANDLE_STORE = "handles";
-const FILE_HANDLE_KEY = "data-file";
 
 const months = [
   "Январь",
@@ -168,9 +165,7 @@ let chartHitAreas = [];
 let chartHoverIndex = null;
 let chartSelectedIndex = null;
 let fileStorageAvailable = false;
-let needsFileSync = false;
-let fileHandle = null;
-let fileAccessSupported = "showOpenFilePicker" in window && "showSaveFilePicker" in window;
+let saveNoticeTimer = null;
 
 const els = {
   totalMetric: document.querySelector("#totalMetric"),
@@ -190,8 +185,7 @@ const els = {
   structureTooltip: document.querySelector("#structureTooltip"),
   assetStructurePeriod: document.querySelector("#assetStructurePeriod"),
   assetStructureTotal: document.querySelector("#assetStructureTotal"),
-  openFileBtn: document.querySelector("#openFileBtn"),
-  fileStatus: document.querySelector("#fileStatus"),
+  saveNotice: document.querySelector("#saveNotice"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -203,10 +197,6 @@ async function init() {
   state = await loadState();
   loadSelectedMonth();
   renderAll();
-  updateFileStatus();
-  if (needsFileSync) {
-    await persist({ silent: true });
-  }
 }
 
 function fillMonthSelect() {
@@ -231,7 +221,6 @@ function bindEvents() {
   });
 
   document.querySelector("#saveMonthBtn").addEventListener("click", saveSelectedMonth);
-  els.openFileBtn?.addEventListener("click", openDataFile);
   document.querySelector("#addRowBtn").addEventListener("click", addAssetRow);
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
@@ -314,8 +303,14 @@ async function saveSelectedMonth() {
   }
 
   state.currentRows = cloneRows(rows);
-  await persist();
-  renderAll();
+  try {
+    const result = await persist();
+    renderAll();
+    showSaveNotice(result?.pushed ? "Данные сохранены и отправлены в GitHub" : "Данные сохранены");
+  } catch (error) {
+    console.error("Save failed", error);
+    showSaveNotice("Не удалось сохранить данные", "error");
+  }
 }
 
 function renderAll() {
@@ -982,56 +977,13 @@ function addAssetRow() {
   renderAssets();
 }
 
-async function openDataFile() {
-  if (!fileAccessSupported) {
-    updateFileStatus("File System Access API недоступен");
-    return;
-  }
-
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      id: "finance-data",
-      types: [
-        {
-          description: "JSON",
-          accept: { "application/json": [".json"] },
-        },
-      ],
-      excludeAcceptAllOption: false,
-      multiple: false,
-    });
-    fileHandle = handle;
-    const permission = await requestFilePermission(handle, "readwrite");
-    if (permission !== "granted") {
-      fileHandle = null;
-      updateFileStatus("Нет доступа к записи");
-      return;
-    }
-
-    await saveFileHandle(handle);
-    const fileState = await readStateFromFileHandle(handle);
-    if (fileState) {
-      state = fileState;
-      loadSelectedMonth();
-      renderAll();
-    }
-    updateFileStatus();
-  } catch (error) {
-    if (error?.name !== "AbortError") updateFileStatus(getFileErrorMessage(error, "Не удалось открыть файл"));
-  }
-}
-
 async function loadState() {
-  const restoredFileState = await loadStateFromStoredFile();
-  if (restoredFileState) return restoredFileState;
-
   try {
     const response = await fetch(DATA_API, { cache: "no-store" });
     if (response.ok) {
       fileStorageAvailable = true;
       const fileState = await response.json();
       if (isEmptyState(fileState)) {
-        needsFileSync = true;
         const browserState = loadBrowserState();
         if (browserState && browserState.records.length >= sampleRecords.length) return browserState;
       }
@@ -1042,7 +994,7 @@ async function loadState() {
   }
 
   try {
-    const response = await fetch("finance-data.json", { cache: "no-store" });
+    const response = await fetch("finance.json", { cache: "no-store" });
     if (response.ok) {
       return normalizeState(await response.json());
     }
@@ -1059,29 +1011,6 @@ async function loadState() {
   };
 }
 
-async function loadStateFromStoredFile() {
-  if (!fileAccessSupported) return null;
-
-  const handle = await loadFileHandle();
-  if (!handle) return null;
-  fileHandle = handle;
-
-  const permission = await queryFilePermission(handle, "read");
-  if (permission !== "granted") {
-    updateFileStatus();
-    return null;
-  }
-
-  try {
-    const fileState = await readStateFromFileHandle(handle);
-    updateFileStatus();
-    return fileState;
-  } catch {
-    updateFileStatus("Файл недоступен");
-    return null;
-  }
-}
-
 function loadBrowserState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
@@ -1094,145 +1023,32 @@ function loadBrowserState() {
   return null;
 }
 
-async function persist(options = {}) {
+async function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
-  if (fileAccessSupported) {
-    try {
-      if (!fileHandle && !options.silent) {
-        fileHandle = await window.showSaveFilePicker({
-          id: "finance-data",
-          suggestedName: "finance-data.json",
-          types: [
-            {
-              description: "JSON",
-              accept: { "application/json": [".json"] },
-            },
-          ],
-        });
-        await saveFileHandle(fileHandle);
-      }
-
-      if (fileHandle) {
-        await writeStateToFileHandle(fileHandle, state);
-        updateFileStatus();
-        return;
-      }
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        console.error("File save failed", error);
-        updateFileStatus(getFileErrorMessage(error, "Файл не сохранен"));
-      }
-    }
+  if (location.protocol === "file:") {
+    throw new Error("Saving to GitHub works only through the local server");
   }
 
-  if (!fileStorageAvailable && location.protocol === "file:") return;
-
-  try {
-    const response = await fetch(DATA_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state),
-    });
-    if (!response.ok) throw new Error("Save failed");
-    fileStorageAvailable = true;
-    needsFileSync = false;
-  } catch {
-    fileStorageAvailable = false;
-  }
-}
-
-async function readStateFromFileHandle(handle) {
-  const file = await handle.getFile();
-  const text = await file.text();
-  return normalizeState(JSON.parse(text));
-}
-
-async function writeStateToFileHandle(handle, value) {
-  const permission = await requestFilePermission(handle, "readwrite");
-  if (permission !== "granted") throw new Error("Нет доступа к записи");
-
-  const writable = await handle.createWritable();
-  await writable.write(JSON.stringify(value, null, 2));
-  await writable.close();
-}
-
-function getFileErrorMessage(error, fallback) {
-  if (!error) return fallback;
-  if (error.name === "NotAllowedError") return "Нет доступа к записи";
-  if (error.name === "NotFoundError") return "Файл не найден";
-  if (error.name === "NoModificationAllowedError") return "Файл открыт только для чтения";
-  if (error.message === "Нет доступа к записи") return error.message;
-  if (error.name) return `${fallback}: ${error.name}`;
-  return fallback;
-}
-
-function updateFileStatus(message) {
-  if (!els.fileStatus || !els.openFileBtn) return;
-
-  if (!fileAccessSupported) {
-    els.openFileBtn.disabled = true;
-    els.fileStatus.textContent = "Файлы недоступны";
-    return;
-  }
-
-  if (message) {
-    els.fileStatus.textContent = message;
-    return;
-  }
-
-  els.fileStatus.textContent = fileHandle?.name ? `Файл: ${fileHandle.name}` : "Файл не выбран";
-}
-
-async function queryFilePermission(handle, mode) {
-  if (!handle?.queryPermission) return "denied";
-  return handle.queryPermission({ mode });
-}
-
-async function requestFilePermission(handle, mode) {
-  if (!handle?.requestPermission) return "denied";
-  const current = await queryFilePermission(handle, mode);
-  if (current === "granted") return current;
-  return handle.requestPermission({ mode });
-}
-
-function openHandleDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(FILE_HANDLE_DB, 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(FILE_HANDLE_STORE);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+  const response = await fetch(DATA_API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
   });
+  if (!response.ok) throw new Error(await response.text());
+  fileStorageAvailable = true;
+  return response.json();
 }
 
-async function loadFileHandle() {
-  try {
-    const db = await openHandleDatabase();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(FILE_HANDLE_STORE, "readonly");
-      const request = tx.objectStore(FILE_HANDLE_STORE).get(FILE_HANDLE_KEY);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch {
-    return null;
-  }
-}
-
-async function saveFileHandle(handle) {
-  try {
-    const db = await openHandleDatabase();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(FILE_HANDLE_STORE, "readwrite");
-      tx.objectStore(FILE_HANDLE_STORE).put(handle, FILE_HANDLE_KEY);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch {
-    // Remembering the handle is a convenience; saving still works this session.
-  }
+function showSaveNotice(message, tone = "success") {
+  if (!els.saveNotice) return;
+  window.clearTimeout(saveNoticeTimer);
+  els.saveNotice.textContent = message;
+  els.saveNotice.classList.toggle("is-error", tone === "error");
+  els.saveNotice.hidden = false;
+  saveNoticeTimer = window.setTimeout(() => {
+    els.saveNotice.hidden = true;
+  }, 3200);
 }
 
 function normalizeState(value) {
