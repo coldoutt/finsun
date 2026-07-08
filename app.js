@@ -4,7 +4,6 @@ const GITHUB_OWNER = "coldoutt";
 const GITHUB_REPO = "finance";
 const GITHUB_BRANCH = "main";
 const GITHUB_DATA_PATH = "finance.json";
-const DATA_API = "/api/data";
 
 const months = [
   "Январь",
@@ -169,7 +168,6 @@ let historyInitialized = false;
 let chartHitAreas = [];
 let chartHoverIndex = null;
 let chartSelectedIndex = null;
-let fileStorageAvailable = false;
 let saveNoticeTimer = null;
 
 const els = {
@@ -1045,21 +1043,6 @@ async function loadState() {
   }
 
   try {
-    const response = await fetch(DATA_API, { cache: "no-store" });
-    if (response.ok) {
-      fileStorageAvailable = true;
-      const fileState = await response.json();
-      if (isEmptyState(fileState)) {
-        const browserState = loadBrowserState();
-        if (browserState && browserState.records.length >= sampleRecords.length) return browserState;
-      }
-      return normalizeState(fileState);
-    }
-  } catch {
-    // If the app is opened directly as a file, browser storage remains available.
-  }
-
-  try {
     const response = await fetch("finance.json", { cache: "no-store" });
     if (response.ok) {
       return normalizeState(await response.json());
@@ -1093,7 +1076,6 @@ async function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
   const result = await saveStateToGitHub(state);
-  fileStorageAvailable = true;
   return result;
 }
 
