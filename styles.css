@@ -606,7 +606,10 @@ td {
 
 .asset-name-col,
 .asset-amount-col,
-.asset-actions-col {
+.asset-actions-col,
+.history-period-col,
+.history-assets-col,
+.history-change-col {
   width: 33.333%;
 }
 
@@ -835,15 +838,6 @@ tfoot td {
   position: sticky;
   top: 0;
   z-index: 2;
-}
-
-.history-period-col {
-  width: 38%;
-}
-
-.history-assets-col,
-.history-change-col {
-  width: 31%;
 }
 
 .summary-table .positive {
