@@ -1,2 +1,5 @@
 .agents/
 .codex/
+node_modules/
+.env
+server/.env

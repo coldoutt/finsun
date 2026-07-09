@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260709-46" />
+    <link rel="stylesheet" href="styles.css?v=20260709-47" />
   </head>
   <body>
     <main class="app-shell">
@@ -134,7 +134,7 @@
         <div class="section-head">
           <div>
             <h2>Настройки</h2>
-            <p>Подключите GitHub token для сохранения данных в finance.json.</p>
+            <p>Войдите в аккаунт, чтобы загружать и сохранять персональные финансовые данные.</p>
           </div>
         </div>
 
@@ -155,18 +155,24 @@
 
           <div class="settings-card">
             <div class="settings-card-head">
-              <h3>GitHub</h3>
-              <p>Token хранится только в этом браузере.</p>
+              <h3>Аккаунт</h3>
+              <p>Персональные данные хранятся на сервере и доступны после входа в систему.</p>
             </div>
-            <div class="github-panel">
+            <div class="account-panel">
               <label>
-                GitHub token
-                <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
+                Email
+                <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" />
               </label>
-              <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
-              <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
-              <span class="github-status" id="githubStatus">Токен не подключен</span>
+              <label>
+                Пароль
+                <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="Минимум 8 символов" />
+              </label>
+              <button class="secondary-button" id="registerBtn" type="button">Регистрация</button>
+              <button class="primary-button" id="loginBtn" type="button">Войти</button>
+              <button class="ghost-button" id="logoutBtn" type="button" hidden>Выйти</button>
+              <span class="account-status" id="accountStatus">Гостевой режим</span>
             </div>
+            <p class="account-note" id="accountNote">Без входа изменения можно держать только локально в этом браузере.</p>
           </div>
         </div>
       </section>
@@ -283,6 +289,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260709-59"></script>
+    <script src="app.js?v=20260709-60"></script>
   </body>
 </html>
