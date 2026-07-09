@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260709-42" />
+    <link rel="stylesheet" href="styles.css?v=20260709-44" />
   </head>
   <body>
     <main class="app-shell">
@@ -138,15 +138,35 @@
           </div>
         </div>
 
-        <div class="settings-card">
-          <div class="github-panel">
-            <label>
-              GitHub token
-              <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
+        <div class="settings-stack">
+          <div class="settings-card">
+            <div class="settings-card-head">
+              <h3>Внешний вид</h3>
+              <p>Выберите тему интерфейса.</p>
+            </div>
+            <label class="settings-field">
+              Тема
+              <select id="themeSelect">
+                <option value="light">Светлая</option>
+                <option value="dark">Темная</option>
+              </select>
             </label>
-            <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
-            <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
-            <span class="github-status" id="githubStatus">Токен не подключен</span>
+          </div>
+
+          <div class="settings-card">
+            <div class="settings-card-head">
+              <h3>GitHub</h3>
+              <p>Token хранится только в этом браузере.</p>
+            </div>
+            <div class="github-panel">
+              <label>
+                GitHub token
+                <input id="githubTokenInput" type="password" autocomplete="off" placeholder="github_pat_..." />
+              </label>
+              <button class="secondary-button" id="saveGithubTokenBtn" type="button">Сохранить токен</button>
+              <button class="ghost-button" id="clearGithubTokenBtn" type="button">Удалить</button>
+              <span class="github-status" id="githubStatus">Токен не подключен</span>
+            </div>
           </div>
         </div>
       </section>
@@ -227,6 +247,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260709-55"></script>
+    <script src="app.js?v=20260709-58"></script>
   </body>
 </html>
