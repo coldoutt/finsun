@@ -1,13 +1,6 @@
 const STORAGE_KEY = "finance-summary-v1";
-const GITHUB_TOKEN_KEY = "finance-github-token";
 const THEME_KEY = "finance-theme";
-const GITHUB_OWNER = "coldoutt";
-const GITHUB_REPO = "finance";
-const GITHUB_BRANCH = "main";
-const GITHUB_DATA_PATH = "finance.json";
-const CBR_DAILY_RATES_URL = "https://www.cbr.ru/scripts/XML_daily.asp";
-const CBR_INFLATION_URL = "https://www.cbr.ru/hd_base/infl/";
-const CORS_PROXY_URL = "https://api.allorigins.win/raw?url=";
+const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 const months = [
@@ -174,6 +167,9 @@ let chartHitAreas = [];
 let chartHoverIndex = null;
 let chartSelectedIndex = null;
 let saveNoticeTimer = null;
+let authState = {
+  user: null,
+};
 
 const els = {
   totalMetric: document.querySelector("#totalMetric"),
@@ -200,10 +196,13 @@ const els = {
   assetStructurePeriod: document.querySelector("#assetStructurePeriod"),
   assetStructureTotal: document.querySelector("#assetStructureTotal"),
   saveNotice: document.querySelector("#saveNotice"),
-  githubTokenInput: document.querySelector("#githubTokenInput"),
-  saveGithubTokenBtn: document.querySelector("#saveGithubTokenBtn"),
-  clearGithubTokenBtn: document.querySelector("#clearGithubTokenBtn"),
-  githubStatus: document.querySelector("#githubStatus"),
+  authEmailInput: document.querySelector("#authEmailInput"),
+  authPasswordInput: document.querySelector("#authPasswordInput"),
+  registerBtn: document.querySelector("#registerBtn"),
+  loginBtn: document.querySelector("#loginBtn"),
+  logoutBtn: document.querySelector("#logoutBtn"),
+  accountStatus: document.querySelector("#accountStatus"),
+  accountNote: document.querySelector("#accountNote"),
   themeSelect: document.querySelector("#themeSelect"),
 };
 
@@ -214,9 +213,9 @@ async function init() {
   fillMonthSelect();
   setCurrentMonth();
   bindEvents();
-  hydrateGithubToken();
+  await hydrateSession();
   state = await loadState();
-  loadSelectedMonth();
+  loadSelectedMonth({ preserveDraft: true });
   renderAll();
   updateExternalMetrics();
   window.setInterval(updateExternalMetrics, EXTERNAL_REFRESH_INTERVAL_MS);
@@ -244,8 +243,9 @@ function bindEvents() {
   });
 
   document.querySelector("#saveMonthBtn").addEventListener("click", saveSelectedMonth);
-  els.saveGithubTokenBtn?.addEventListener("click", saveGithubToken);
-  els.clearGithubTokenBtn?.addEventListener("click", clearGithubToken);
+  els.registerBtn?.addEventListener("click", registerAccount);
+  els.loginBtn?.addEventListener("click", loginAccount);
+  els.logoutBtn?.addEventListener("click", logoutAccount);
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   document.querySelector("#addRowBtn").addEventListener("click", addAssetRow);
 
@@ -299,11 +299,17 @@ function selectTab(name) {
   }
 }
 
-function loadSelectedMonth() {
+function loadSelectedMonth(options = {}) {
   const year = Number(els.yearInput.value);
   const month = Number(els.monthInput.value);
   const existing = state.records.find((record) => record.key === recordKey(year, month));
-  state.currentRows = cloneRows(existing?.rows ?? templateRows);
+  if (existing) {
+    state.currentRows = cloneRows(existing.rows);
+  } else if (options.preserveDraft) {
+    state.currentRows = cloneRows(state.currentRows?.length ? state.currentRows : templateRows);
+  } else {
+    state.currentRows = cloneRows(templateRows);
+  }
   renderAssets();
 }
 
@@ -332,7 +338,7 @@ async function saveSelectedMonth() {
   try {
     const result = await persist();
     renderAll();
-    showSaveNotice(result?.pushed ? "Данные сохранены и отправлены в GitHub" : "Данные сохранены");
+    showSaveNotice(result?.remote ? "Данные сохранены в аккаунте" : "Данные сохранены только в этом браузере");
   } catch (error) {
     console.error("Save failed", error);
     showSaveNotice(error.message || "Не удалось сохранить данные", "error");
@@ -594,22 +600,34 @@ async function updateExternalMetrics() {
   setExternalMetric(els.usdRateMetric, els.usdRateMeta, "Загрузка", "ЦБ РФ");
   setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Загрузка", "ЦБ РФ");
 
-  const [ratesResult, inflationResult] = await Promise.allSettled([fetchCurrencyRates(), fetchInflationRate()]);
+  try {
+    const response = await apiRequest("/metrics");
+    const rates = response.metrics?.rates;
+    const inflation = response.metrics?.inflation;
 
-  if (ratesResult.status === "fulfilled") {
-    const { date, usd, eur } = ratesResult.value;
-    const meta = date ? `ЦБ РФ · ${date}` : "ЦБ РФ";
-    setExternalMetric(els.usdRateMetric, els.usdRateMeta, formatRate(usd), meta);
-    setExternalMetric(els.eurRateMetric, els.eurRateMeta, formatRate(eur), meta);
-  } else {
+    if (rates?.ok) {
+      const meta = rates.date ? `ЦБ РФ · ${rates.date}` : "ЦБ РФ";
+      setExternalMetric(els.usdRateMetric, els.usdRateMeta, formatRate(rates.usd), meta);
+      setExternalMetric(els.eurRateMetric, els.eurRateMeta, formatRate(rates.eur), meta);
+    } else {
+      setExternalMetric(els.usdRateMetric, els.usdRateMeta, "Нет данных", "ЦБ РФ недоступен");
+      setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Нет данных", "ЦБ РФ недоступен");
+    }
+
+    if (inflation?.ok) {
+      setExternalMetric(
+        els.inflationMetric,
+        els.inflationMeta,
+        formatPercentValue(inflation.value),
+        inflation.period ? `ЦБ РФ · ${inflation.period}` : "ЦБ РФ"
+      );
+    } else {
+      setExternalMetric(els.inflationMetric, els.inflationMeta, "Нет данных", "ЦБ РФ недоступен");
+    }
+  } catch (error) {
+    console.error("Metrics load failed", error);
     setExternalMetric(els.usdRateMetric, els.usdRateMeta, "Нет данных", "ЦБ РФ недоступен");
     setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Нет данных", "ЦБ РФ недоступен");
-  }
-
-  if (inflationResult.status === "fulfilled") {
-    const { value, period } = inflationResult.value;
-    setExternalMetric(els.inflationMetric, els.inflationMeta, formatPercentValue(value), period ? `ЦБ РФ · ${period}` : "ЦБ РФ");
-  } else {
     setExternalMetric(els.inflationMetric, els.inflationMeta, "Нет данных", "ЦБ РФ недоступен");
   }
 }
@@ -617,70 +635,6 @@ async function updateExternalMetrics() {
 function setExternalMetric(valueElement, metaElement, value, meta) {
   if (valueElement) valueElement.textContent = value;
   if (metaElement) metaElement.textContent = meta;
-}
-
-async function fetchCurrencyRates() {
-  const xmlText = await fetchOfficialText(CBR_DAILY_RATES_URL);
-  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-  const parseError = xml.querySelector("parsererror");
-  if (parseError) throw new Error("Currency XML parse error");
-
-  const root = xml.querySelector("ValCurs");
-  const usd = parseCbrCurrency(xml, "R01235");
-  const eur = parseCbrCurrency(xml, "R01239");
-  return {
-    date: root?.getAttribute("Date") || "",
-    usd,
-    eur,
-  };
-}
-
-function parseCbrCurrency(xml, id) {
-  const value = xml.querySelector(`Valute[ID="${id}"] Value`)?.textContent;
-  const nominal = xml.querySelector(`Valute[ID="${id}"] Nominal`)?.textContent;
-  const parsedValue = parseRussianNumber(value);
-  const parsedNominal = parseRussianNumber(nominal) || 1;
-  if (!Number.isFinite(parsedValue)) throw new Error(`Currency ${id} is missing`);
-  return parsedValue / parsedNominal;
-}
-
-async function fetchInflationRate() {
-  const html = await fetchOfficialText(CBR_INFLATION_URL);
-  const documentHtml = new DOMParser().parseFromString(html, "text/html");
-  const rows = [...documentHtml.querySelectorAll("table tr")];
-
-  for (const row of rows) {
-    const cells = [...row.querySelectorAll("td, th")]
-      .map((cell) => normalizeText(cell.textContent))
-      .filter(Boolean);
-    if (cells.length < 2) continue;
-
-    const period = cells.find((cell) => /\d{2}\.\d{2}\.\d{4}|\d{4}/.test(cell)) || cells[0];
-    const valueCell = [...cells].reverse().find((cell) => /-?\d+([,.]\d+)?/.test(cell));
-    const value = parseRussianNumber(valueCell);
-    if (Number.isFinite(value) && value > -100 && value < 100) {
-      return { value, period };
-    }
-  }
-
-  throw new Error("Inflation value is missing");
-}
-
-async function fetchOfficialText(url) {
-  const urls = [url, `${CORS_PROXY_URL}${encodeURIComponent(url)}`];
-  let lastError = null;
-
-  for (const targetUrl of urls) {
-    try {
-      const response = await fetch(targetUrl, { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.text();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("Official data is unavailable");
 }
 
 function drawChart() {
@@ -1130,84 +1084,121 @@ function applyTheme(theme) {
   document.body.dataset.theme = theme === "dark" ? "dark" : "light";
 }
 
-function hydrateGithubToken() {
-  const token = getGithubToken();
-  if (els.githubTokenInput && token) {
-    els.githubTokenInput.value = token;
-  }
-  updateGithubStatus();
-}
-
-async function saveGithubToken() {
-  const token = els.githubTokenInput?.value.trim();
-  if (!token) {
-    showSaveNotice("Введите GitHub token", "error");
-    return;
-  }
-
-  localStorage.setItem(GITHUB_TOKEN_KEY, token);
-  updateGithubStatus();
-
+async function hydrateSession() {
   try {
-    const remoteState = await loadStateFromGitHub();
-    state = remoteState;
-    loadSelectedMonth();
-    renderAll();
-    showSaveNotice("GitHub token сохранен");
+    const response = await apiRequest("/auth/me");
+    authState.user = response.user || null;
   } catch (error) {
-    console.error("GitHub token check failed", error);
-    showSaveNotice("Токен сохранен, но доступ к finance.json не проверен", "error");
+    if (error.status !== 401) {
+      console.error("Session restore failed", error);
+    }
+    authState.user = null;
+  }
+  updateAccountStatus();
+}
+
+function updateAccountStatus() {
+  if (!els.accountStatus || !els.accountNote) return;
+
+  if (isAuthenticated()) {
+    els.accountStatus.textContent = `Выполнен вход: ${authState.user.email}`;
+    els.accountNote.textContent = "Изменения будут сохраняться в вашем персональном аккаунте.";
+    if (els.logoutBtn) els.logoutBtn.hidden = false;
+  } else {
+    els.accountStatus.textContent = "Гостевой режим";
+    els.accountNote.textContent = "Без входа изменения можно держать только локально в этом браузере.";
+    if (els.logoutBtn) els.logoutBtn.hidden = true;
   }
 }
 
-function clearGithubToken() {
-  localStorage.removeItem(GITHUB_TOKEN_KEY);
-  if (els.githubTokenInput) els.githubTokenInput.value = "";
-  updateGithubStatus();
-  showSaveNotice("GitHub token удален");
+function readAuthCredentials() {
+  const email = els.authEmailInput?.value.trim() || "";
+  const password = els.authPasswordInput?.value || "";
+  if (!email || !password) {
+    throw new Error("Укажите email и пароль.");
+  }
+  return { email, password };
 }
 
-function updateGithubStatus() {
-  if (!els.githubStatus) return;
-  els.githubStatus.textContent = getGithubToken() ? "GitHub подключен" : "Токен не подключен";
+async function registerAccount() {
+  try {
+    const credentials = readAuthCredentials();
+    const response = await apiRequest("/auth/register", {
+      method: "POST",
+      body: credentials,
+    });
+    authState.user = response.user || null;
+    clearAuthPassword();
+    updateAccountStatus();
+    await reloadStateFromAccount();
+    showSaveNotice("Аккаунт создан, вход выполнен");
+  } catch (error) {
+    console.error("Register failed", error);
+    showSaveNotice(error.message || "Не удалось создать аккаунт", "error");
+  }
 }
 
-function getGithubToken() {
-  return localStorage.getItem(GITHUB_TOKEN_KEY) || "";
+async function loginAccount() {
+  try {
+    const credentials = readAuthCredentials();
+    const response = await apiRequest("/auth/login", {
+      method: "POST",
+      body: credentials,
+    });
+    authState.user = response.user || null;
+    clearAuthPassword();
+    updateAccountStatus();
+    await reloadStateFromAccount();
+    showSaveNotice("Вход выполнен");
+  } catch (error) {
+    console.error("Login failed", error);
+    showSaveNotice(error.message || "Не удалось выполнить вход", "error");
+  }
+}
+
+async function logoutAccount() {
+  try {
+    await apiRequest("/auth/logout", { method: "POST" });
+  } catch (error) {
+    console.error("Logout failed", error);
+  }
+
+  authState.user = null;
+  clearAuthPassword();
+  updateAccountStatus();
+  state = loadBrowserState() || buildGuestState();
+  loadSelectedMonth({ preserveDraft: true });
+  renderAll();
+  showSaveNotice("Вы вышли из аккаунта");
+}
+
+function clearAuthPassword() {
+  if (els.authPasswordInput) els.authPasswordInput.value = "";
 }
 
 async function loadState() {
-  if (getGithubToken()) {
+  if (isAuthenticated()) {
     try {
-      return await loadStateFromGitHub();
+      return await loadStateFromApi();
     } catch (error) {
-      console.error("GitHub load failed", error);
+      if (error.status === 401) {
+        authState.user = null;
+        updateAccountStatus();
+        showSaveNotice("Сессия истекла, данные аккаунта недоступны", "error");
+      } else {
+        console.error("API load failed", error);
+      }
     }
   }
 
-  try {
-    const response = await fetch("finance.json", { cache: "no-store" });
-    if (response.ok) {
-      return normalizeState(await response.json());
-    }
-  } catch {
-    // Static file loading can be unavailable from file://, then use browser storage.
-  }
-
-  const browserState = loadBrowserState();
-  if (browserState && browserState.records.length >= sampleRecords.length) return browserState;
-
-  return {
-    records: sampleRecords,
-    currentRows: cloneRows(templateRows),
-  };
+  return loadBrowserState() || buildGuestState();
 }
 
 function loadBrowserState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return normalizeState(JSON.parse(saved));
+      return normalizeState(JSON.parse(saved), { fallbackRecords: sampleRecords });
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -1216,99 +1207,79 @@ function loadBrowserState() {
 }
 
 async function persist() {
+  if (isAuthenticated()) {
+    const result = await saveStateToApi(state);
+    state = normalizeState(result.state, { fallbackRecords: [] });
+    return { remote: true };
+  }
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-
-  const result = await saveStateToGitHub(state);
-  return result;
+  return { remote: false };
 }
 
-async function loadStateFromGitHub() {
-  const file = await getGitHubFile();
-  return normalizeState(file.data);
+async function reloadStateFromAccount() {
+  state = await loadStateFromApi();
+  loadSelectedMonth({ preserveDraft: true });
+  renderAll();
 }
 
-async function saveStateToGitHub(value) {
-  const token = getGithubToken();
-  if (!token) throw new Error("Добавьте GitHub token");
+async function loadStateFromApi() {
+  const response = await apiRequest("/finance/state");
+  return normalizeState(response.state, { fallbackRecords: [] });
+}
 
-  const current = await getGitHubFile();
-  const pretty = `${JSON.stringify(value, null, 2)}\n`;
-  const response = await fetch(githubContentUrl(), {
+async function saveStateToApi(value) {
+  return apiRequest("/finance/state", {
     method: "PUT",
-    headers: githubHeaders(token),
-    body: JSON.stringify({
-      message: "Save finance data",
-      content: encodeBase64(pretty),
-      sha: current.sha,
-      branch: GITHUB_BRANCH,
-    }),
+    body: {
+      state: value,
+    },
+  });
+}
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: options.method || "GET",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  if (!response.ok) throw new Error(await getGitHubError(response));
-  return { ok: true, pushed: true, commit: (await response.json()).commit?.sha || null };
-}
+  if (response.status === 204) return {};
 
-async function getGitHubFile() {
-  const token = getGithubToken();
-  if (!token) throw new Error("Добавьте GitHub token");
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json") ? await response.json() : null;
 
-  const response = await fetch(`${githubContentUrl()}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, {
-    headers: githubHeaders(token),
-    cache: "no-store",
-  });
-
-  if (!response.ok) throw new Error(await getGitHubError(response));
-
-  const file = await response.json();
-  const text = decodeBase64(file.content || "");
-  return {
-    sha: file.sha,
-    data: JSON.parse(text),
-  };
-}
-
-function githubContentUrl() {
-  const encodedPath = GITHUB_DATA_PATH.split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  return `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodedPath}`;
-}
-
-function githubHeaders(token) {
-  return {
-    Accept: "application/vnd.github+json",
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
-}
-
-async function getGitHubError(response) {
-  try {
-    const error = await response.json();
-    if (response.status === 401 || response.status === 403) return "Нет доступа к GitHub. Проверьте token и право Contents: Read and write";
-    if (response.status === 404) return "Файл finance.json или репозиторий не найден";
-    if (response.status === 409) return "Файл изменился в GitHub. Обновите страницу и попробуйте снова";
-    return error.message || `GitHub API error: ${response.status}`;
-  } catch {
-    return `GitHub API error: ${response.status}`;
+  if (!response.ok) {
+    const error = new Error(payload?.message || `API error: ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
+
+  return payload || {};
 }
 
-function encodeBase64(value) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+function resolveApiBase() {
+  const host = window.location.hostname;
+  if (window.location.protocol === "file:") {
+    return "http://localhost:3000/api";
   }
-  return btoa(binary);
+  if (host === "127.0.0.1" || host === "localhost") {
+    return `http://${host}:3000/api`;
+  }
+  return "/api";
 }
 
-function decodeBase64(value) {
-  const binary = atob(value.replace(/\n/g, ""));
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
+function isAuthenticated() {
+  return Boolean(authState.user?.id);
+}
+
+function buildGuestState() {
+  return normalizeState(null, { fallbackRecords: sampleRecords });
 }
 
 function showSaveNotice(message, tone = "success") {
@@ -1322,10 +1293,46 @@ function showSaveNotice(message, tone = "success") {
   }, 3200);
 }
 
-function normalizeState(value) {
+function normalizeState(value, options = {}) {
+  const fallbackRecords = Array.isArray(options.fallbackRecords) ? options.fallbackRecords : sampleRecords;
+  const records = Array.isArray(value?.records)
+    ? value.records.map(normalizeRecordState).filter(Boolean)
+    : fallbackRecords.map((record) => normalizeRecordState(record)).filter(Boolean);
+  const fallbackRows = records.at(-1)?.rows?.length ? records.at(-1).rows : templateRows;
+  const currentRows = Array.isArray(value?.currentRows) && value.currentRows.length
+    ? value.currentRows.map(normalizeRowState)
+    : cloneRows(fallbackRows);
+
   return {
-    records: Array.isArray(value?.records) && value.records.length ? value.records : sampleRecords,
-    currentRows: cloneRows(Array.isArray(value?.currentRows) && value.currentRows.length ? value.currentRows : templateRows),
+    records,
+    currentRows: cloneRows(currentRows),
+  };
+}
+
+function normalizeRecordState(record) {
+  const year = Number(record?.year);
+  const month = Number(record?.month);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return null;
+  const rows = Array.isArray(record?.rows) ? record.rows.map(normalizeRowState) : [];
+  const total = Number.isFinite(Number(record?.total))
+    ? Math.round(Number(record.total))
+    : sumRows(rows);
+
+  return {
+    key: recordKey(year, month),
+    year,
+    month,
+    rows,
+    total,
+    savedAt: record?.savedAt || null,
+  };
+}
+
+function normalizeRowState(row) {
+  return {
+    category: String(row?.category || "").trim() || "Без категории",
+    name: String(row?.name || "").trim() || "Без названия",
+    amount: Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0,
   };
 }
 

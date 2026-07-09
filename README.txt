@@ -2,21 +2,29 @@
 ================
 
 Как открыть:
-- Откройте index.html в браузере или используйте опубликованную страницу проекта.
+- Откройте `index.html` в браузере для интерфейса.
+- Для многопользовательского режима запустите backend из папки `server/`.
 
-Где хранятся данные:
-- Основной файл данных: finance.json.
-- Файл лежит в репозитории рядом с index.html, app.js и styles.css.
+Режимы работы:
+- Без входа приложение работает в гостевом режиме и может хранить данные только локально в этом браузере.
+- После регистрации или входа данные загружаются и сохраняются через backend API в персональный аккаунт.
 
-Сохранение:
-- Приложение сохраняет данные только через GitHub REST API.
-- Для сохранения создайте fine-grained GitHub token.
-- Repository access: только coldoutt/finance.
-- Permissions: Contents -> Read and write.
-- Вставьте token в поле GitHub token на вкладке Активы и нажмите Сохранить токен.
-- Token хранится только в localStorage текущего браузера.
-- Не добавляйте token в app.js, index.html или другие файлы проекта.
+Backend:
+- Скопируйте `.env.example` в `.env`.
+- Укажите `DATABASE_URL`.
+- Установите зависимости: `npm install`
+- Примените миграции: `npm run db:migrate`
+- Запустите сервер: `npm run server:dev`
+
+Основные backend endpoints:
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/finance/state`
+- `PUT /api/finance/state`
+- `GET /api/metrics`
 
 Важно:
-- При сохранении месяца приложение напрямую обновляет finance.json через GitHub REST API.
-- Другие способы сохранения данных в проекте не используются.
+- Персональные данные теперь предназначены для хранения в PostgreSQL через backend.
+- `finance.json` можно оставить как исторический статический файл и резерв для старого сценария, но новый frontend на него больше не опирается.
