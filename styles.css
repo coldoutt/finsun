@@ -27,6 +27,8 @@
   --blue-soft: rgba(107, 144, 216, 0.12);
   --blue-strong: #5477c5;
   --orange-soft: rgba(217, 144, 91, 0.14);
+  --yellow-soft: rgba(218, 169, 61, 0.14);
+  --yellow-strong: #b98211;
   --row-hover: rgba(18, 185, 129, 0.045);
   --track-bg: #edf0ed;
   --tooltip-bg: rgba(255, 255, 255, 0.96);
@@ -68,6 +70,8 @@ body[data-theme="dark"] {
   --blue-soft: rgba(142, 170, 232, 0.16);
   --blue-strong: #a6bcf0;
   --orange-soft: rgba(230, 165, 117, 0.18);
+  --yellow-soft: rgba(242, 191, 76, 0.16);
+  --yellow-strong: #f2bf4c;
   --row-hover: rgba(31, 209, 143, 0.08);
   --track-bg: #26312a;
   --tooltip-bg: rgba(23, 30, 26, 0.96);
@@ -348,6 +352,21 @@ h2 {
   color: var(--orange);
 }
 
+.metric-inflation .metric-icon {
+  background: var(--yellow-soft);
+  color: var(--yellow-strong);
+}
+
+.metric-usd .metric-icon {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.metric-eur .metric-icon {
+  background: var(--blue-soft);
+  color: var(--blue-strong);
+}
+
 .metric-label {
   position: absolute;
   left: 64px;
@@ -396,6 +415,18 @@ h2 {
   margin-top: 10px;
   font-size: 15px;
   font-weight: 800;
+}
+
+.metric-meta {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .positive,

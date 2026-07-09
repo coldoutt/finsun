@@ -5,6 +5,10 @@ const GITHUB_OWNER = "coldoutt";
 const GITHUB_REPO = "finance";
 const GITHUB_BRANCH = "main";
 const GITHUB_DATA_PATH = "finance.json";
+const CBR_DAILY_RATES_URL = "https://www.cbr.ru/scripts/XML_daily.asp";
+const CBR_INFLATION_URL = "https://www.cbr.ru/hd_base/infl/";
+const CORS_PROXY_URL = "https://api.allorigins.win/raw?url=";
+const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 const months = [
   "Январь",
@@ -175,6 +179,12 @@ const els = {
   totalMetric: document.querySelector("#totalMetric"),
   monthDeltaMetric: document.querySelector("#monthDeltaMetric"),
   yearDeltaMetric: document.querySelector("#yearDeltaMetric"),
+  inflationMetric: document.querySelector("#inflationMetric"),
+  inflationMeta: document.querySelector("#inflationMeta"),
+  usdRateMetric: document.querySelector("#usdRateMetric"),
+  usdRateMeta: document.querySelector("#usdRateMeta"),
+  eurRateMetric: document.querySelector("#eurRateMetric"),
+  eurRateMeta: document.querySelector("#eurRateMeta"),
   yearInput: document.querySelector("#yearInput"),
   monthInput: document.querySelector("#monthInput"),
   assetRows: document.querySelector("#assetRows"),
@@ -208,6 +218,8 @@ async function init() {
   state = await loadState();
   loadSelectedMonth();
   renderAll();
+  updateExternalMetrics();
+  window.setInterval(updateExternalMetrics, EXTERNAL_REFRESH_INTERVAL_MS);
 }
 
 function fillMonthSelect() {
@@ -575,6 +587,100 @@ function renderMetrics() {
     latest && latestYearPrevious ? formatMetricChange(latest.total - latestYearPrevious.total, latestYearPrevious.total) : "0 ₽";
   els.monthDeltaMetric.innerHTML =
     latest && previous ? formatMetricChange(latest.total - previous.total, previous.total) : "0 ₽";
+}
+
+async function updateExternalMetrics() {
+  setExternalMetric(els.inflationMetric, els.inflationMeta, "Загрузка", "официальные данные");
+  setExternalMetric(els.usdRateMetric, els.usdRateMeta, "Загрузка", "ЦБ РФ");
+  setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Загрузка", "ЦБ РФ");
+
+  const [ratesResult, inflationResult] = await Promise.allSettled([fetchCurrencyRates(), fetchInflationRate()]);
+
+  if (ratesResult.status === "fulfilled") {
+    const { date, usd, eur } = ratesResult.value;
+    const meta = date ? `ЦБ РФ · ${date}` : "ЦБ РФ";
+    setExternalMetric(els.usdRateMetric, els.usdRateMeta, formatRate(usd), meta);
+    setExternalMetric(els.eurRateMetric, els.eurRateMeta, formatRate(eur), meta);
+  } else {
+    setExternalMetric(els.usdRateMetric, els.usdRateMeta, "Нет данных", "ЦБ РФ недоступен");
+    setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Нет данных", "ЦБ РФ недоступен");
+  }
+
+  if (inflationResult.status === "fulfilled") {
+    const { value, period } = inflationResult.value;
+    setExternalMetric(els.inflationMetric, els.inflationMeta, formatPercentValue(value), period ? `ЦБ РФ · ${period}` : "ЦБ РФ");
+  } else {
+    setExternalMetric(els.inflationMetric, els.inflationMeta, "Нет данных", "ЦБ РФ недоступен");
+  }
+}
+
+function setExternalMetric(valueElement, metaElement, value, meta) {
+  if (valueElement) valueElement.textContent = value;
+  if (metaElement) metaElement.textContent = meta;
+}
+
+async function fetchCurrencyRates() {
+  const xmlText = await fetchOfficialText(CBR_DAILY_RATES_URL);
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  const parseError = xml.querySelector("parsererror");
+  if (parseError) throw new Error("Currency XML parse error");
+
+  const root = xml.querySelector("ValCurs");
+  const usd = parseCbrCurrency(xml, "R01235");
+  const eur = parseCbrCurrency(xml, "R01239");
+  return {
+    date: root?.getAttribute("Date") || "",
+    usd,
+    eur,
+  };
+}
+
+function parseCbrCurrency(xml, id) {
+  const value = xml.querySelector(`Valute[ID="${id}"] Value`)?.textContent;
+  const nominal = xml.querySelector(`Valute[ID="${id}"] Nominal`)?.textContent;
+  const parsedValue = parseRussianNumber(value);
+  const parsedNominal = parseRussianNumber(nominal) || 1;
+  if (!Number.isFinite(parsedValue)) throw new Error(`Currency ${id} is missing`);
+  return parsedValue / parsedNominal;
+}
+
+async function fetchInflationRate() {
+  const html = await fetchOfficialText(CBR_INFLATION_URL);
+  const documentHtml = new DOMParser().parseFromString(html, "text/html");
+  const rows = [...documentHtml.querySelectorAll("table tr")];
+
+  for (const row of rows) {
+    const cells = [...row.querySelectorAll("td, th")]
+      .map((cell) => normalizeText(cell.textContent))
+      .filter(Boolean);
+    if (cells.length < 2) continue;
+
+    const period = cells.find((cell) => /\d{2}\.\d{2}\.\d{4}|\d{4}/.test(cell)) || cells[0];
+    const valueCell = [...cells].reverse().find((cell) => /-?\d+([,.]\d+)?/.test(cell));
+    const value = parseRussianNumber(valueCell);
+    if (Number.isFinite(value) && value > -100 && value < 100) {
+      return { value, period };
+    }
+  }
+
+  throw new Error("Inflation value is missing");
+}
+
+async function fetchOfficialText(url) {
+  const urls = [url, `${CORS_PROXY_URL}${encodeURIComponent(url)}`];
+  let lastError = null;
+
+  for (const targetUrl of urls) {
+    try {
+      const response = await fetch(targetUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Official data is unavailable");
 }
 
 function drawChart() {
@@ -1317,8 +1423,29 @@ function parseAmount(value) {
   return Math.round(Number.parseFloat(normalized) || 0);
 }
 
+function parseRussianNumber(value) {
+  if (value === null || value === undefined) return Number.NaN;
+  const normalized = String(value)
+    .replace(/\s/g, "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+  return Number.parseFloat(normalized);
+}
+
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
 function formatMoney(value) {
   return `${formatPlainNumber(value)} ₽`;
+}
+
+function formatRate(value) {
+  return `${Number(value).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`;
+}
+
+function formatPercentValue(value) {
+  return `${Number(value).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`;
 }
 
 function formatSignedMoney(value) {
