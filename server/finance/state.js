@@ -1,4 +1,6 @@
 import { query, withTransaction } from "../db.js";
+import { config } from "../config.js";
+import { readStore, updateStore } from "../storage/file-store.js";
 
 function normalizeRow(row) {
   const category = String(row?.category || "").trim() || "Без категории";
@@ -54,6 +56,15 @@ export function validateFinanceState(input) {
 }
 
 export async function loadFinanceState(userId, db = { query }) {
+  if (config.dataBackend === "file") {
+    const store = await readStore();
+    const state = store.financeStates[String(userId)] || { records: [], currentRows: [] };
+    return {
+      records: Array.isArray(state.records) ? state.records.map(normalizeRecord) : [],
+      currentRows: Array.isArray(state.currentRows) ? state.currentRows.map(normalizeRow) : [],
+    };
+  }
+
   const [snapshotsResult, currentRowsResult] = await Promise.all([
     db.query(
       `select
@@ -114,6 +125,23 @@ export async function loadFinanceState(userId, db = { query }) {
 }
 
 export async function saveFinanceState(userId, state) {
+  if (config.dataBackend === "file") {
+    const store = await updateStore((current) => {
+      current.financeStates[String(userId)] = {
+        records: state.records.map(normalizeRecord),
+        currentRows: state.currentRows.map(normalizeRow),
+        updatedAt: new Date().toISOString(),
+      };
+      return current;
+    });
+
+    const saved = store.financeStates[String(userId)];
+    return {
+      records: saved.records.map(normalizeRecord),
+      currentRows: saved.currentRows.map(normalizeRow),
+    };
+  }
+
   return withTransaction(async (client) => {
     await client.query("delete from finance_snapshots where user_id = $1", [userId]);
 

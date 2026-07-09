@@ -15,10 +15,11 @@ This folder contains the first backend scaffold for turning the static dashboard
 ## Local setup
 
 1. Copy `.env.example` to `.env`.
-2. Fill in `DATABASE_URL`.
-3. Install dependencies with `npm install`.
-4. Apply database migrations with `npm run db:migrate`.
-5. Run the server with `npm run server:dev`.
+2. For a no-Docker local run, set `DATA_BACKEND=file`.
+3. If you want PostgreSQL instead, set `DATA_BACKEND=postgres` and fill in `DATABASE_URL`.
+4. Install dependencies with `npm install`.
+5. Apply database migrations with `npm run db:migrate`.
+6. Run the server with `npm run server:dev`.
 
 ## Current status
 
@@ -27,3 +28,4 @@ Auth already supports registration, login, logout, and current-session lookup vi
 Per-user finance state already supports loading and saving `records` plus `currentRows`.
 Server-side metrics now load CBR rates and inflation through `GET /api/metrics` with in-memory caching.
 Auth routes also have an in-memory rate limiter and async errors are forwarded to the API error handler.
+When `DATA_BACKEND=file`, users, sessions, and finance state are stored in `server/data/app-data.json`.
