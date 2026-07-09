@@ -1,4 +1,5 @@
 const STORAGE_KEY = "finance-summary-v1";
+const AUTH_STORAGE_KEY = "finance-auth-v1";
 const THEME_KEY = "finance-theme";
 const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
@@ -168,6 +169,7 @@ let chartHoverIndex = null;
 let chartSelectedIndex = null;
 let saveNoticeTimer = null;
 let authState = {
+  provider: "api",
   user: null,
 };
 
@@ -1087,12 +1089,20 @@ function applyTheme(theme) {
 async function hydrateSession() {
   try {
     const response = await apiRequest("/auth/me");
+    authState.provider = "api";
     authState.user = response.user || null;
   } catch (error) {
-    if (error.status !== 401) {
+    if (shouldUseBrowserAuthFallback(error)) {
+      authState.provider = "browser";
+      authState.user = getBrowserSessionUser();
+    } else if (error.status !== 401) {
       console.error("Session restore failed", error);
+      authState.provider = "api";
+      authState.user = null;
+    } else {
+      authState.provider = "api";
+      authState.user = null;
     }
-    authState.user = null;
   }
   updateAccountStatus();
 }
@@ -1102,7 +1112,9 @@ function updateAccountStatus() {
 
   if (isAuthenticated()) {
     els.accountStatus.textContent = `Выполнен вход: ${authState.user.email}`;
-    els.accountNote.textContent = "Изменения будут сохраняться в вашем персональном аккаунте.";
+    els.accountNote.textContent = authState.provider === "browser"
+      ? "Аккаунт и данные хранятся локально в этом браузере, потому что серверный API на этом хостинге недоступен."
+      : "Изменения будут сохраняться в вашем персональном аккаунте.";
     if (els.logoutBtn) els.logoutBtn.hidden = false;
   } else {
     els.accountStatus.textContent = "Гостевой режим";
@@ -1123,11 +1135,16 @@ function readAuthCredentials() {
 async function registerAccount() {
   try {
     const credentials = readAuthCredentials();
-    const response = await apiRequest("/auth/register", {
-      method: "POST",
-      body: credentials,
-    });
-    authState.user = response.user || null;
+    if (authState.provider === "browser") {
+      authState.user = await registerBrowserAccount(credentials);
+    } else {
+      const response = await apiRequest("/auth/register", {
+        method: "POST",
+        body: credentials,
+      });
+      authState.provider = "api";
+      authState.user = response.user || null;
+    }
     clearAuthPassword();
     updateAccountStatus();
     await reloadStateFromAccount();
@@ -1141,11 +1158,16 @@ async function registerAccount() {
 async function loginAccount() {
   try {
     const credentials = readAuthCredentials();
-    const response = await apiRequest("/auth/login", {
-      method: "POST",
-      body: credentials,
-    });
-    authState.user = response.user || null;
+    if (authState.provider === "browser") {
+      authState.user = await loginBrowserAccount(credentials);
+    } else {
+      const response = await apiRequest("/auth/login", {
+        method: "POST",
+        body: credentials,
+      });
+      authState.provider = "api";
+      authState.user = response.user || null;
+    }
     clearAuthPassword();
     updateAccountStatus();
     await reloadStateFromAccount();
@@ -1158,7 +1180,11 @@ async function loginAccount() {
 
 async function logoutAccount() {
   try {
-    await apiRequest("/auth/logout", { method: "POST" });
+    if (authState.provider === "browser") {
+      clearBrowserSession();
+    } else {
+      await apiRequest("/auth/logout", { method: "POST" });
+    }
   } catch (error) {
     console.error("Logout failed", error);
   }
@@ -1179,7 +1205,7 @@ function clearAuthPassword() {
 async function loadState() {
   if (isAuthenticated()) {
     try {
-      return await loadStateFromApi();
+      return authState.provider === "browser" ? loadStateFromBrowserAccount() : await loadStateFromApi();
     } catch (error) {
       if (error.status === 401) {
         authState.user = null;
@@ -1208,6 +1234,11 @@ function loadBrowserState() {
 
 async function persist() {
   if (isAuthenticated()) {
+    if (authState.provider === "browser") {
+      state = saveStateToBrowserAccount(state);
+      return { remote: true };
+    }
+
     const result = await saveStateToApi(state);
     state = normalizeState(result.state, { fallbackRecords: [] });
     return { remote: true };
@@ -1218,7 +1249,7 @@ async function persist() {
 }
 
 async function reloadStateFromAccount() {
-  state = await loadStateFromApi();
+  state = authState.provider === "browser" ? loadStateFromBrowserAccount() : await loadStateFromApi();
   loadSelectedMonth({ preserveDraft: true });
   renderAll();
 }
@@ -1275,6 +1306,111 @@ function resolveApiBase() {
     return `${window.location.protocol}//${host}:3000/api`;
   }
   return "/api";
+}
+
+function shouldUseBrowserAuthFallback(error) {
+  return isStaticDeployment() && [404, 405, 502].includes(Number(error?.status));
+}
+
+function isStaticDeployment() {
+  return window.location.protocol.startsWith("http") && window.location.hostname.endsWith("github.io");
+}
+
+function readBrowserAuthStore() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      nextUserId: Number(parsed?.nextUserId || 1),
+      currentUserId: parsed?.currentUserId ? Number(parsed.currentUserId) : null,
+      users: Array.isArray(parsed?.users) ? parsed.users : [],
+      financeStates: parsed?.financeStates && typeof parsed.financeStates === "object" ? parsed.financeStates : {},
+    };
+  } catch {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    return { nextUserId: 1, currentUserId: null, users: [], financeStates: {} };
+  }
+}
+
+function writeBrowserAuthStore(store) {
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(store));
+}
+
+function getBrowserSessionUser() {
+  const store = readBrowserAuthStore();
+  const user = store.users.find((item) => Number(item.id) === Number(store.currentUserId));
+  return user ? sanitizeBrowserUser(user) : null;
+}
+
+async function registerBrowserAccount(credentials) {
+  const store = readBrowserAuthStore();
+  const email = String(credentials.email || "").trim().toLowerCase();
+  if (store.users.some((item) => item.email === email)) {
+    throw new Error("Пользователь с таким email уже существует.");
+  }
+
+  const user = {
+    id: store.nextUserId,
+    email,
+    passwordHash: await hashBrowserPassword(credentials.password),
+    createdAt: new Date().toISOString(),
+  };
+  store.nextUserId += 1;
+  store.currentUserId = user.id;
+  store.users.push(user);
+  writeBrowserAuthStore(store);
+  return sanitizeBrowserUser(user);
+}
+
+async function loginBrowserAccount(credentials) {
+  const store = readBrowserAuthStore();
+  const email = String(credentials.email || "").trim().toLowerCase();
+  const user = store.users.find((item) => item.email === email);
+  if (!user) {
+    throw new Error("Неверный email или пароль.");
+  }
+
+  const passwordHash = await hashBrowserPassword(credentials.password);
+  if (user.passwordHash !== passwordHash) {
+    throw new Error("Неверный email или пароль.");
+  }
+
+  store.currentUserId = user.id;
+  writeBrowserAuthStore(store);
+  return sanitizeBrowserUser(user);
+}
+
+function clearBrowserSession() {
+  const store = readBrowserAuthStore();
+  store.currentUserId = null;
+  writeBrowserAuthStore(store);
+}
+
+function loadStateFromBrowserAccount() {
+  const store = readBrowserAuthStore();
+  const rawState = store.financeStates[String(authState.user.id)] || null;
+  return normalizeState(rawState, { fallbackRecords: [] });
+}
+
+function saveStateToBrowserAccount(value) {
+  const store = readBrowserAuthStore();
+  store.financeStates[String(authState.user.id)] = value;
+  writeBrowserAuthStore(store);
+  return normalizeState(value, { fallbackRecords: [] });
+}
+
+function sanitizeBrowserUser(user) {
+  return {
+    id: Number(user.id),
+    email: user.email,
+    createdAt: user.createdAt,
+  };
+}
+
+async function hashBrowserPassword(password) {
+  const bytes = new TextEncoder().encode(String(password || ""));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (item) => item.toString(16).padStart(2, "0")).join("");
 }
 
 function isAuthenticated() {
