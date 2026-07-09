@@ -1,5 +1,6 @@
 const STORAGE_KEY = "finance-summary-v1";
 const GITHUB_TOKEN_KEY = "finance-github-token";
+const THEME_KEY = "finance-theme";
 const GITHUB_OWNER = "coldoutt";
 const GITHUB_REPO = "finance";
 const GITHUB_BRANCH = "main";
@@ -193,11 +194,13 @@ const els = {
   saveGithubTokenBtn: document.querySelector("#saveGithubTokenBtn"),
   clearGithubTokenBtn: document.querySelector("#clearGithubTokenBtn"),
   githubStatus: document.querySelector("#githubStatus"),
+  themeSelect: document.querySelector("#themeSelect"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
+  hydrateTheme();
   fillMonthSelect();
   setCurrentMonth();
   bindEvents();
@@ -231,6 +234,7 @@ function bindEvents() {
   document.querySelector("#saveMonthBtn").addEventListener("click", saveSelectedMonth);
   els.saveGithubTokenBtn?.addEventListener("click", saveGithubToken);
   els.clearGithubTokenBtn?.addEventListener("click", clearGithubToken);
+  els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   document.querySelector("#addRowBtn").addEventListener("click", addAssetRow);
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
@@ -577,8 +581,9 @@ function drawChart() {
   const canvas = els.chart;
   const shell = canvas.parentElement;
   const rect = shell.getBoundingClientRect();
-  const width = Math.max(360, Math.floor(rect.width - 32));
-  const height = 380;
+  const isMobileChart = rect.width < 620;
+  const width = Math.max(280, Math.floor(rect.width - (isMobileChart ? 20 : 32)));
+  const height = isMobileChart ? 280 : rect.width < 900 ? 330 : 380;
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
@@ -591,7 +596,7 @@ function drawChart() {
   chartHitAreas = [];
   if (!records.length) {
     hideChartTooltip();
-    ctx.fillStyle = "#8a918c";
+    ctx.fillStyle = getCssColor("--muted");
     ctx.font = "20px Calibri, Segoe UI, sans-serif";
     ctx.fillText("Выберите год или сохраните первый месяц.", 24, 60);
     return;
@@ -601,17 +606,19 @@ function drawChart() {
   const axis = getAxisScale(Math.min(...values), Math.max(...values));
   const max = axis.max;
   const min = axis.min;
-  const plot = { left: 76, right: 24, top: 28, bottom: 72 };
+  const plot = isMobileChart
+    ? { left: 52, right: 12, top: 20, bottom: 54 }
+    : { left: 76, right: 24, top: 28, bottom: 72 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
   const slotWidth = plotWidth / Math.max(1, records.length);
   const xStep = records.length > 1 ? slotWidth : 0;
-  const barWidth = Math.max(8, Math.min(38, slotWidth * 0.72));
+  const barWidth = Math.max(isMobileChart ? 5 : 8, Math.min(isMobileChart ? 24 : 38, slotWidth * 0.72));
 
-  ctx.strokeStyle = "#e5e9e6";
+  ctx.strokeStyle = getCssColor("--line");
   ctx.lineWidth = 1;
-  ctx.fillStyle = "#8a918c";
-  ctx.font = "13px Calibri, Segoe UI, sans-serif";
+  ctx.fillStyle = getCssColor("--muted");
+  ctx.font = `${isMobileChart ? 11 : 13}px Calibri, Segoe UI, sans-serif`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
 
@@ -625,7 +632,7 @@ function drawChart() {
     ctx.fillText(formatAxisCompact(value), plot.left - 12, y);
   }
 
-  ctx.strokeStyle = "#d5ddd8";
+  ctx.strokeStyle = getCssColor("--line-strong");
   ctx.beginPath();
   ctx.moveTo(plot.left, plot.top);
   ctx.lineTo(plot.left, plot.top + plotHeight);
@@ -634,15 +641,15 @@ function drawChart() {
 
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillStyle = "#8a918c";
-  ctx.font = "13px Calibri, Segoe UI, sans-serif";
-  const labelEvery = getLabelStep(records.length);
+  ctx.fillStyle = getCssColor("--muted");
+  ctx.font = `${isMobileChart ? 11 : 13}px Calibri, Segoe UI, sans-serif`;
+  const labelEvery = getLabelStep(records.length, isMobileChart);
   records.forEach((record, index) => {
     const shouldLabel = index === 0 || index === records.length - 1 || index % labelEvery === 0 || record.month === 0;
     if (!shouldLabel) return;
     const x = plot.left + slotWidth / 2 + index * xStep;
-    ctx.fillText(getShortMonth(record.month), x, plot.top + plotHeight + 12);
-    ctx.fillText(String(record.year), x, plot.top + plotHeight + 28);
+    ctx.fillText(getShortMonth(record.month), x, plot.top + plotHeight + (isMobileChart ? 9 : 12));
+    ctx.fillText(String(record.year), x, plot.top + plotHeight + (isMobileChart ? 24 : 28));
   });
 
   const points = records.map((record, index) => {
@@ -664,7 +671,7 @@ function drawChart() {
   const activeIndex = chartHoverIndex ?? chartSelectedIndex;
   const activeArea = activeIndex === null ? null : chartHitAreas[activeIndex];
   if (activeArea) {
-    ctx.strokeStyle = "rgba(17, 22, 20, 0.18)";
+    ctx.strokeStyle = getCssColor("--line-strong");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(activeArea.x, plot.top);
@@ -675,11 +682,11 @@ function drawChart() {
   if (chartMode === "bar") {
     points.forEach((point, index) => {
       const isActive = index === activeIndex;
-      ctx.fillStyle = isActive ? "#0f9f6f" : "#21b7aa";
+      ctx.fillStyle = isActive ? getCssColor("--accent-strong") : getCssColor("--cyan");
       ctx.fillRect(point.x - barWidth / 2, point.y, barWidth, plot.top + plotHeight - point.y);
     });
   } else {
-    ctx.strokeStyle = "#21b7aa";
+    ctx.strokeStyle = getCssColor("--cyan");
     ctx.lineWidth = 4;
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -691,7 +698,7 @@ function drawChart() {
     points.forEach((point, index) => {
       const isActive = index === activeIndex;
       ctx.beginPath();
-      ctx.fillStyle = isActive ? "#0f9f6f" : "#12b981";
+      ctx.fillStyle = isActive ? getCssColor("--accent-strong") : getCssColor("--accent");
       ctx.arc(point.x, point.y, isActive ? 6 : 4, 0, Math.PI * 2);
       ctx.fill();
     });
@@ -828,11 +835,21 @@ function renderAssetStructure() {
   });
 }
 
-function getLabelStep(count) {
+function getLabelStep(count, compact = false) {
+  if (compact) {
+    if (count <= 8) return 1;
+    if (count <= 24) return 3;
+    if (count <= 48) return 6;
+    return 12;
+  }
   if (count <= 18) return 1;
   if (count <= 36) return 3;
   if (count <= 72) return 6;
   return 12;
+}
+
+function getCssColor(name) {
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
 }
 
 function getShortMonth(month) {
@@ -988,6 +1005,23 @@ function moveAssetRow(index, direction) {
 function addAssetRow() {
   state.currentRows.push({ category: "Новая категория", name: "Новый актив", amount: 0 });
   renderAssets();
+}
+
+function hydrateTheme() {
+  const theme = localStorage.getItem(THEME_KEY) || "light";
+  applyTheme(theme);
+  if (els.themeSelect) els.themeSelect.value = theme;
+}
+
+function setTheme(theme) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  localStorage.setItem(THEME_KEY, nextTheme);
+  applyTheme(nextTheme);
+  drawChart();
+}
+
+function applyTheme(theme) {
+  document.body.dataset.theme = theme === "dark" ? "dark" : "light";
 }
 
 function hydrateGithubToken() {
