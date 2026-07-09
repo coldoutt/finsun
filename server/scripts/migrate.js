@@ -1,6 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "../config.js";
 import { pool } from "../db.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -8,6 +9,11 @@ const __dirname = path.dirname(__filename);
 const migrationsDir = path.resolve(__dirname, "../migrations");
 
 async function runMigrations() {
+  if (config.dataBackend === "file") {
+    console.log("DATA_BACKEND=file, skipping SQL migrations.");
+    return;
+  }
+
   const client = await pool.connect();
 
   try {

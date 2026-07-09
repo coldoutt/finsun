@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ function readOrigins(value) {
 export const config = {
   port: Number(process.env.PORT || 3000),
   appOrigins: readOrigins(process.env.APP_ORIGIN),
+  dataBackend: String(process.env.DATA_BACKEND || "postgres").trim().toLowerCase(),
+  dataFile: path.resolve(process.cwd(), process.env.DATA_FILE || "server/data/app-data.json"),
   databaseUrl: process.env.DATABASE_URL || "",
   sessionSecret: process.env.SESSION_SECRET || "change-me",
   cookieSecure: readBoolean(process.env.COOKIE_SECURE, false),

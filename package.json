@@ -6,10 +6,10 @@
   "scripts": {
     "db:migrate": "node server/scripts/migrate.js",
     "server:dev": "node --watch server/index.js",
-    "server:start": "node server/index.js"
+    "server:start": "node server/index.js",
+    "web:start": "node server/scripts/static-server.js"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
