@@ -1268,8 +1268,11 @@ function resolveApiBase() {
   if (window.location.protocol === "file:") {
     return "http://localhost:3000/api";
   }
+  if (window.location.port && window.location.port !== "3000") {
+    return `${window.location.protocol}//${host}:3000/api`;
+  }
   if (host === "127.0.0.1" || host === "localhost") {
-    return `http://${host}:3000/api`;
+    return `${window.location.protocol}//${host}:3000/api`;
   }
   return "/api";
 }
