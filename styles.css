@@ -306,17 +306,17 @@ h2 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
   margin-bottom: 16px;
 }
 
 .metric {
   position: relative;
-  min-height: 128px;
+  min-height: 88px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 14px;
   background: var(--surface);
   box-shadow: 0 10px 30px var(--shadow-soft);
   overflow: hidden;
@@ -325,16 +325,16 @@ h2 {
 .metric-icon {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
 
 .metric-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -369,12 +369,12 @@ h2 {
 
 .metric-label {
   position: absolute;
-  left: 64px;
-  right: 20px;
-  top: 21px;
+  left: 50px;
+  right: 14px;
+  top: 17px;
   display: block;
   color: var(--muted-strong);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
@@ -386,9 +386,9 @@ h2 {
   position: relative;
   z-index: 1;
   display: block;
-  margin-top: 22px;
+  margin-top: 16px;
   color: var(--ink);
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(20px, 1.6vw, 28px);
   line-height: 1.05;
   font-weight: 850;
   white-space: nowrap;
@@ -397,13 +397,13 @@ h2 {
 .metric-main {
   display: block;
   color: var(--ink);
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(20px, 1.6vw, 28px);
   font-weight: 850;
   line-height: 1.05;
 }
 
 .metric strong .metric-main {
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   color: inherit;
   font-size: inherit;
   font-weight: inherit;
@@ -412,16 +412,16 @@ h2 {
 
 .metric-percent {
   display: block;
-  margin-top: 10px;
-  font-size: 15px;
+  margin-top: 6px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .metric-meta {
   display: block;
-  margin-top: 10px;
+  margin-top: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.25;
   white-space: nowrap;
@@ -1385,6 +1385,12 @@ tfoot td {
   background: var(--danger-surface);
 }
 
+@media (max-width: 1320px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1412,7 +1418,10 @@ tfoot td {
     padding: 16px;
   }
 
-  .summary-grid,
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .chart-layout {
     grid-template-columns: 1fr;
   }
@@ -1480,13 +1489,35 @@ tfoot td {
     white-space: nowrap;
   }
 
-  .metric,
   .panel {
     padding: 16px;
   }
 
+  .metric {
+    min-height: 96px;
+    padding: 13px;
+  }
+
   .summary-grid {
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .metric-label {
+    left: 47px;
+    right: 10px;
+    top: 16px;
+    font-size: 12px;
+  }
+
+  .metric strong,
+  .metric-main {
+    font-size: clamp(18px, 5.5vw, 24px);
+  }
+
+  .metric-meta,
+  .metric-percent {
+    font-size: 11px;
   }
 
   #dashboardPanel .section-head {
