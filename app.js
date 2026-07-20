@@ -1,9 +1,9 @@
-const STORAGE_KEY = "finance-summary-v1";
 const AUTH_STORAGE_KEY = "finance-auth-v1";
 const THEME_KEY = "finance-theme";
 const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const OWNER_EMAIL = "tonygazz@gmail.com";
+const OWNER_SEED_LAST_RECORD_KEY = "2026-07";
 
 const months = [
   "Январь",
@@ -207,6 +207,8 @@ const els = {
   accountStatus: document.querySelector("#accountStatus"),
   accountNote: document.querySelector("#accountNote"),
   themeSelect: document.querySelector("#themeSelect"),
+  addRowBtn: document.querySelector("#addRowBtn"),
+  saveMonthBtn: document.querySelector("#saveMonthBtn"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -245,12 +247,12 @@ function bindEvents() {
     tab.addEventListener("click", () => selectTab(tab.dataset.sideTab));
   });
 
-  document.querySelector("#saveMonthBtn").addEventListener("click", saveSelectedMonth);
+  els.saveMonthBtn.addEventListener("click", saveSelectedMonth);
   els.registerBtn?.addEventListener("click", registerAccount);
   els.loginBtn?.addEventListener("click", loginAccount);
   els.logoutBtn?.addEventListener("click", logoutAccount);
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
-  document.querySelector("#addRowBtn").addEventListener("click", addAssetRow);
+  els.addRowBtn.addEventListener("click", addAssetRow);
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
   els.monthInput.addEventListener("change", loadSelectedMonth);
@@ -317,6 +319,11 @@ function loadSelectedMonth(options = {}) {
 }
 
 async function saveSelectedMonth() {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы сохранять финансовые данные", "error");
+    return;
+  }
+
   const year = Number(els.yearInput.value);
   const month = Number(els.monthInput.value);
   const rows = readAssetRows();
@@ -1066,6 +1073,11 @@ function moveAssetRow(index, direction) {
 }
 
 function addAssetRow() {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы добавлять активы", "error");
+    return;
+  }
+
   state.currentRows.push({ category: "Новая категория", name: "Новый актив", amount: 0 });
   renderAssets();
 }
@@ -1119,9 +1131,13 @@ function updateAccountStatus() {
     if (els.logoutBtn) els.logoutBtn.hidden = false;
   } else {
     els.accountStatus.textContent = "Гостевой режим";
-    els.accountNote.textContent = "Без входа изменения можно держать только локально в этом браузере.";
+    els.accountNote.textContent = "В гостевом режиме активы и история не сохраняются.";
     if (els.logoutBtn) els.logoutBtn.hidden = true;
   }
+
+  const editingEnabled = isAuthenticated();
+  if (els.addRowBtn) els.addRowBtn.disabled = !editingEnabled;
+  if (els.saveMonthBtn) els.saveMonthBtn.disabled = !editingEnabled;
 }
 
 function readAuthCredentials() {
@@ -1193,7 +1209,7 @@ async function logoutAccount() {
   authState.user = null;
   clearAuthPassword();
   updateAccountStatus();
-  state = loadBrowserState() || buildGuestState();
+  state = buildGuestState();
   loadSelectedMonth({ preserveDraft: true });
   renderAll();
   showSaveNotice("Вы вышли из аккаунта");
@@ -1218,19 +1234,7 @@ async function loadState() {
     }
   }
 
-  return loadBrowserState() || buildGuestState();
-}
-
-function loadBrowserState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return normalizeState(JSON.parse(saved), { fallbackRecords: [] });
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }
-  return null;
+  return buildGuestState();
 }
 
 async function persist() {
@@ -1245,20 +1249,21 @@ async function persist() {
     return { remote: true };
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   return { remote: false };
 }
 
 async function reloadStateFromAccount() {
-  state = authState.provider === "browser" ? loadStateFromBrowserAccount() : await loadStateFromApi();
+  state = authState.provider === "browser"
+    ? await loadStateFromBrowserAccount()
+    : await loadStateFromApi();
   loadSelectedMonth({ preserveDraft: true });
   renderAll();
 }
 
 async function loadStateFromApi() {
   const response = await apiRequest("/finance/state");
-  if (isOwnerAccount() && response.initialized === false) {
-    const seeded = await saveStateToApi(buildOwnerSeedState());
+  if (isOwnerAccount() && (response.initialized === false || needsOwnerHistoryMigration(response.state))) {
+    const seeded = await saveStateToApi(await buildOwnerSeedState());
     return normalizeState(seeded.state, { fallbackRecords: [] });
   }
   return normalizeState(response.state, { fallbackRecords: [] });
@@ -1391,11 +1396,12 @@ function clearBrowserSession() {
   writeBrowserAuthStore(store);
 }
 
-function loadStateFromBrowserAccount() {
+async function loadStateFromBrowserAccount() {
   const store = readBrowserAuthStore();
   const userKey = String(authState.user.id);
-  if (!Object.prototype.hasOwnProperty.call(store.financeStates, userKey) && isOwnerAccount()) {
-    store.financeStates[userKey] = buildOwnerSeedState();
+  const storedState = store.financeStates[userKey] || null;
+  if (isOwnerAccount() && needsOwnerHistoryMigration(storedState)) {
+    store.financeStates[userKey] = await buildOwnerSeedState();
     writeBrowserAuthStore(store);
   }
   const rawState = store.financeStates[userKey] || null;
@@ -1435,11 +1441,23 @@ function isOwnerAccount() {
   return String(authState.user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
 }
 
-function buildOwnerSeedState() {
-  return {
-    records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
-    currentRows: cloneRows(ownerSeedRows),
-  };
+function needsOwnerHistoryMigration(value) {
+  return !Array.isArray(value?.records)
+    || !value.records.some((record) => record?.key === OWNER_SEED_LAST_RECORD_KEY);
+}
+
+async function buildOwnerSeedState() {
+  try {
+    const response = await fetch("finance.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Seed data error: ${response.status}`);
+    return normalizeState(await response.json(), { fallbackRecords: [] });
+  } catch (error) {
+    console.error("Owner seed data load failed", error);
+    return {
+      records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
+      currentRows: cloneRows(ownerSeedRows),
+    };
+  }
 }
 
 function showSaveNotice(message, tone = "success") {

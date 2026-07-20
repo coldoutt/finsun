@@ -13,7 +13,10 @@ function normalizeRecord(record) {
   const year = Number(record?.year);
   const month = Number(record?.month);
   const rows = Array.isArray(record?.rows) ? record.rows.map(normalizeRow) : [];
-  const total = rows.reduce((sum, row) => sum + row.amount, 0);
+  const rowsTotal = rows.reduce((sum, row) => sum + row.amount, 0);
+  const total = rows.length || !Number.isFinite(Number(record?.total))
+    ? rowsTotal
+    : Math.round(Number(record.total));
 
   return {
     key: `${year}-${String(month + 1).padStart(2, "0")}`,
@@ -71,6 +74,7 @@ export async function loadFinanceState(userId, db = { query }) {
          s.id as snapshot_id,
          s.year,
          s.month,
+         s.total,
          s.updated_at,
          r.id as row_id,
          r.category,
@@ -100,7 +104,7 @@ export async function loadFinanceState(userId, db = { query }) {
         year: Number(row.year),
         month: Number(row.month),
         rows: [],
-        total: 0,
+        total: Number(row.total || 0),
         savedAt: row.updated_at,
       });
     }
@@ -109,7 +113,6 @@ export async function loadFinanceState(userId, db = { query }) {
       const snapshot = bySnapshot.get(row.snapshot_id);
       const item = normalizeRow(row);
       snapshot.rows.push(item);
-      snapshot.total += item.amount;
     }
   });
 
@@ -164,10 +167,10 @@ export async function saveFinanceState(userId, state) {
 
     for (const record of state.records) {
       const snapshotResult = await client.query(
-        `insert into finance_snapshots (user_id, year, month, updated_at)
-         values ($1, $2, $3, coalesce($4::timestamptz, now()))
+        `insert into finance_snapshots (user_id, year, month, total, updated_at)
+         values ($1, $2, $3, $4, coalesce($5::timestamptz, now()))
          returning id, updated_at`,
-        [userId, record.year, record.month, record.savedAt]
+        [userId, record.year, record.month, record.total, record.savedAt]
       );
 
       const snapshotId = snapshotResult.rows[0].id;

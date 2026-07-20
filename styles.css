@@ -22,8 +22,6 @@
   --negative-text: #e15b64;
   --positive-bg: rgba(18, 185, 129, 0.09);
   --negative-bg: rgba(225, 91, 100, 0.1);
-  --brand-bg: #191c1a;
-  --brand-fg: #ffffff;
   --blue-soft: rgba(107, 144, 216, 0.12);
   --blue-strong: #5477c5;
   --orange-soft: rgba(217, 144, 91, 0.14);
@@ -65,8 +63,6 @@ body[data-theme="dark"] {
   --negative-text: #ff7b84;
   --positive-bg: rgba(31, 209, 143, 0.12);
   --negative-bg: rgba(255, 123, 132, 0.13);
-  --brand-bg: #e8f2ee;
-  --brand-fg: #0f1412;
   --blue-soft: rgba(142, 170, 232, 0.16);
   --blue-strong: #a6bcf0;
   --orange-soft: rgba(230, 165, 117, 0.18);
@@ -132,62 +128,6 @@ button {
   padding: 22px 16px;
   background: var(--sidebar);
   overflow: auto;
-}
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 4px;
-  color: var(--ink);
-}
-
-.sidebar-brand strong {
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: 50%;
-  background: var(--brand-bg);
-  box-shadow: 0 8px 18px var(--shadow-medium);
-}
-
-.brand-mark span,
-.brand-mark span::before,
-.brand-mark span::after {
-  display: block;
-  width: 14px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--brand-fg);
-  content: "";
-}
-
-.brand-mark span {
-  position: relative;
-  transform: rotate(45deg);
-}
-
-.brand-mark span::before {
-  position: absolute;
-  transform: rotate(90deg);
-}
-
-.brand-mark span::after {
-  position: absolute;
-  right: -2px;
-  top: -1px;
-  width: 6px;
-  height: 6px;
-  background: var(--accent);
 }
 
 .quick-find {
@@ -902,6 +842,12 @@ td {
   color: var(--ink);
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .asset-item-row td:first-child input[data-field="name"] {
   padding-left: 28px;
   color: var(--muted-strong);
@@ -1476,10 +1422,6 @@ tfoot td {
 @media (max-width: 620px) {
   .sidebar {
     padding: 16px 12px;
-  }
-
-  .sidebar-brand {
-    padding: 0;
   }
 
   .side-nav {

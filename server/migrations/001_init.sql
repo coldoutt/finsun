@@ -27,6 +27,7 @@ create table if not exists finance_snapshots (
   user_id bigint not null references users(id) on delete cascade,
   year integer not null,
   month integer not null check (month between 0 and 11),
+  total bigint not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, year, month)
