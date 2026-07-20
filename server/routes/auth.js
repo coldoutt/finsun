@@ -12,10 +12,13 @@ import {
   createUser,
   findUserByEmail,
   sanitizeUser,
+  updateUserProfile,
   validateCredentials,
+  validateProfile,
   verifyPassword,
 } from "../auth/users.js";
 import { asyncHandler } from "../lib/async-handler.js";
+import { requireAuth } from "../middleware/auth.js";
 import { authRateLimit, clearAuthFailures, recordAuthFailure } from "../middleware/auth-rate-limit.js";
 
 const router = express.Router();
@@ -117,6 +120,23 @@ router.get("/me", asyncHandler(async (req, res) => {
   return res.json({
     user: sanitizeUser(user),
   });
+}));
+
+router.patch("/profile", requireAuth, asyncHandler(async (req, res) => {
+  const validation = validateProfile(req.body?.firstName, req.body?.lastName);
+  if (!validation.ok) {
+    return res.status(400).json({
+      error: "invalid_profile",
+      message: validation.message,
+    });
+  }
+
+  const user = await updateUserProfile(
+    req.user.id,
+    validation.firstName,
+    validation.lastName
+  );
+  return res.json({ user: sanitizeUser(user) });
 }));
 
 export default router;

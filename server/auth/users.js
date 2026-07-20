@@ -11,11 +11,40 @@ export function normalizeEmail(email) {
 }
 
 export function sanitizeUser(user) {
+  const defaults = getDefaultProfile(user.email);
   return {
     id: Number(user.id),
     email: user.email,
+    firstName: String(user.first_name || user.firstName || defaults.firstName),
+    lastName: String(user.last_name || user.lastName || defaults.lastName),
     createdAt: user.created_at,
   };
+}
+
+export function getDefaultProfile(email) {
+  const normalizedEmail = normalizeEmail(email);
+  if (normalizedEmail === "tonygazz@gmail.com") {
+    return { firstName: "Tony", lastName: "Gazz" };
+  }
+
+  const parts = normalizedEmail
+    .split("@")[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
+  return {
+    firstName: parts[0] || "Пользователь",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+export function validateProfile(firstName, lastName) {
+  const normalizedFirstName = String(firstName || "").trim();
+  const normalizedLastName = String(lastName || "").trim();
+  if (!normalizedFirstName || normalizedFirstName.length > 80 || normalizedLastName.length > 80) {
+    return { ok: false, message: "Укажите имя длиной до 80 символов." };
+  }
+  return { ok: true, firstName: normalizedFirstName, lastName: normalizedLastName };
 }
 
 export function validateCredentials(email, password) {
@@ -44,7 +73,7 @@ export async function findUserByEmail(email) {
   }
 
   const result = await query(
-    `select id, email, password_hash, created_at
+    `select id, email, password_hash, first_name, last_name, created_at
      from users
      where email = $1
      limit 1`,
@@ -56,6 +85,7 @@ export async function findUserByEmail(email) {
 
 export async function createUser(email, password) {
   const passwordHash = await hashPassword(password);
+  const profile = getDefaultProfile(email);
 
   if (config.dataBackend === "file") {
     const store = await updateStore((current) => {
@@ -63,6 +93,8 @@ export async function createUser(email, password) {
         id: current.nextIds.users,
         email: normalizeEmail(email),
         password_hash: passwordHash,
+        first_name: profile.firstName,
+        last_name: profile.lastName,
         created_at: new Date().toISOString(),
       };
       current.nextIds.users += 1;
@@ -74,13 +106,35 @@ export async function createUser(email, password) {
   }
 
   const result = await query(
-    `insert into users (email, password_hash)
-     values ($1, $2)
-     returning id, email, created_at`,
-    [normalizeEmail(email), passwordHash]
+    `insert into users (email, password_hash, first_name, last_name)
+     values ($1, $2, $3, $4)
+     returning id, email, first_name, last_name, created_at`,
+    [normalizeEmail(email), passwordHash, profile.firstName, profile.lastName]
   );
 
   return result.rows[0];
+}
+
+export async function updateUserProfile(userId, firstName, lastName) {
+  if (config.dataBackend === "file") {
+    const store = await updateStore((current) => {
+      const user = current.users.find((item) => Number(item.id) === Number(userId));
+      if (!user) return current;
+      user.first_name = firstName;
+      user.last_name = lastName;
+      return current;
+    });
+    return store.users.find((item) => Number(item.id) === Number(userId)) || null;
+  }
+
+  const result = await query(
+    `update users
+     set first_name = $2, last_name = $3
+     where id = $1
+     returning id, email, first_name, last_name, created_at`,
+    [userId, firstName, lastName]
+  );
+  return result.rows[0] || null;
 }
 
 export async function verifyPassword(user, password) {

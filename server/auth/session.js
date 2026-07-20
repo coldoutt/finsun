@@ -94,6 +94,8 @@ export async function getSessionUserByToken(token) {
     return {
       id: user.id,
       email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
       created_at: user.created_at,
       session_id: session.id,
       expires_at: session.expires_at,
@@ -104,6 +106,8 @@ export async function getSessionUserByToken(token) {
     `select
        u.id,
        u.email,
+       u.first_name,
+       u.last_name,
        u.created_at,
        s.id as session_id,
        s.expires_at

@@ -204,10 +204,18 @@ const els = {
   registerBtn: document.querySelector("#registerBtn"),
   loginBtn: document.querySelector("#loginBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
+  saveProfileBtn: document.querySelector("#saveProfileBtn"),
+  profileFirstNameInput: document.querySelector("#profileFirstNameInput"),
+  profileLastNameInput: document.querySelector("#profileLastNameInput"),
   accountLoginForm: document.querySelector("#accountLoginForm"),
   accountSession: document.querySelector("#accountSession"),
   accountStatus: document.querySelector("#accountStatus"),
   accountNote: document.querySelector("#accountNote"),
+  sidebarLoginBtn: document.querySelector("#sidebarLoginBtn"),
+  sidebarUserBtn: document.querySelector("#sidebarUserBtn"),
+  sidebarUserAvatar: document.querySelector("#sidebarUserAvatar"),
+  sidebarUserName: document.querySelector("#sidebarUserName"),
+  sidebarUserEmail: document.querySelector("#sidebarUserEmail"),
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
@@ -253,6 +261,9 @@ function bindEvents() {
   els.registerBtn?.addEventListener("click", registerAccount);
   els.loginBtn?.addEventListener("click", loginAccount);
   els.logoutBtn?.addEventListener("click", logoutAccount);
+  els.saveProfileBtn?.addEventListener("click", saveProfile);
+  els.sidebarLoginBtn?.addEventListener("click", openAccountSettings);
+  els.sidebarUserBtn?.addEventListener("click", openAccountSettings);
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   els.addRowBtn.addEventListener("click", addAssetRow);
 
@@ -1126,22 +1137,68 @@ function updateAccountStatus() {
   if (!els.accountStatus || !els.accountNote) return;
 
   if (isAuthenticated()) {
+    const profile = getUserProfile(authState.user);
+    const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
     els.accountStatus.textContent = authState.user.email;
+    if (els.profileFirstNameInput) els.profileFirstNameInput.value = profile.firstName;
+    if (els.profileLastNameInput) els.profileLastNameInput.value = profile.lastName;
+    if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
+    if (els.sidebarUserEmail) els.sidebarUserEmail.textContent = authState.user.email;
+    if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
     els.accountNote.textContent = authState.provider === "browser"
       ? "Аккаунт и данные хранятся локально в этом браузере, потому что серверный API на этом хостинге недоступен."
       : "Изменения будут сохраняться в вашем персональном аккаунте.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = true;
     if (els.accountSession) els.accountSession.hidden = false;
+    if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = true;
+    if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = false;
   } else {
     els.accountStatus.textContent = "";
     els.accountNote.textContent = "В гостевом режиме активы и история не сохраняются.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = false;
     if (els.accountSession) els.accountSession.hidden = true;
+    if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = false;
+    if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = true;
   }
 
   const editingEnabled = isAuthenticated();
   if (els.addRowBtn) els.addRowBtn.disabled = !editingEnabled;
   if (els.saveMonthBtn) els.saveMonthBtn.disabled = !editingEnabled;
+}
+
+function openAccountSettings() {
+  selectTab("settings");
+  if (!isAuthenticated()) {
+    els.authEmailInput?.focus();
+  }
+}
+
+async function saveProfile() {
+  if (!isAuthenticated()) return;
+
+  const firstName = els.profileFirstNameInput?.value.trim() || "";
+  const lastName = els.profileLastNameInput?.value.trim() || "";
+  if (!firstName || firstName.length > 80 || lastName.length > 80) {
+    showSaveNotice("Укажите имя длиной до 80 символов", "error");
+    return;
+  }
+
+  try {
+    if (authState.provider === "browser") {
+      authState.user = updateBrowserProfile(firstName, lastName);
+    } else {
+      const response = await apiRequest("/auth/profile", {
+        method: "PATCH",
+        body: { firstName, lastName },
+      });
+      authState.user = response.user;
+    }
+    updateAccountStatus();
+    showSaveNotice("Профиль сохранен");
+  } catch (error) {
+    console.error("Profile save failed", error);
+    showSaveNotice(error.message || "Не удалось сохранить профиль", "error");
+  }
 }
 
 function readAuthCredentials() {
@@ -1366,6 +1423,7 @@ async function registerBrowserAccount(credentials) {
   const user = {
     id: store.nextUserId,
     email,
+    ...getDefaultUserProfile(email),
     passwordHash: await hashBrowserPassword(credentials.password),
     createdAt: new Date().toISOString(),
   };
@@ -1420,11 +1478,52 @@ function saveStateToBrowserAccount(value) {
 }
 
 function sanitizeBrowserUser(user) {
+  const profile = getUserProfile(user);
   return {
     id: Number(user.id),
     email: user.email,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
     createdAt: user.createdAt,
   };
+}
+
+function updateBrowserProfile(firstName, lastName) {
+  const store = readBrowserAuthStore();
+  const user = store.users.find((item) => Number(item.id) === Number(authState.user.id));
+  if (!user) throw new Error("Пользователь не найден");
+  user.firstName = firstName;
+  user.lastName = lastName;
+  writeBrowserAuthStore(store);
+  return sanitizeBrowserUser(user);
+}
+
+function getUserProfile(user) {
+  const defaults = getDefaultUserProfile(user?.email);
+  return {
+    firstName: String(user?.firstName || defaults.firstName).trim(),
+    lastName: String(user?.lastName || defaults.lastName).trim(),
+  };
+}
+
+function getDefaultUserProfile(email) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (normalizedEmail === OWNER_EMAIL) {
+    return { firstName: "Tony", lastName: "Gazz" };
+  }
+  const parts = normalizedEmail
+    .split("@")[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
+  return {
+    firstName: parts[0] || "Пользователь",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+function getUserInitials(profile) {
+  return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || "П";
 }
 
 async function hashBrowserPassword(password) {
