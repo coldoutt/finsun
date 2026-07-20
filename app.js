@@ -216,6 +216,9 @@ const els = {
   sidebarUserAvatar: document.querySelector("#sidebarUserAvatar"),
   sidebarUserName: document.querySelector("#sidebarUserName"),
   sidebarUserEmail: document.querySelector("#sidebarUserEmail"),
+  profileMenu: document.querySelector("#profileMenu"),
+  profileMenuCloseBtn: document.querySelector("#profileMenuCloseBtn"),
+  profileMenuSubtitle: document.querySelector("#profileMenuSubtitle"),
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
@@ -262,10 +265,20 @@ function bindEvents() {
   els.loginBtn?.addEventListener("click", loginAccount);
   els.logoutBtn?.addEventListener("click", logoutAccount);
   els.saveProfileBtn?.addEventListener("click", saveProfile);
-  els.sidebarLoginBtn?.addEventListener("click", openAccountSettings);
-  els.sidebarUserBtn?.addEventListener("click", openAccountSettings);
+  els.sidebarLoginBtn?.addEventListener("click", () => toggleProfileMenu());
+  els.sidebarUserBtn?.addEventListener("click", () => toggleProfileMenu());
+  els.profileMenuCloseBtn?.addEventListener("click", () => toggleProfileMenu(false));
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   els.addRowBtn.addEventListener("click", addAssetRow);
+
+  document.addEventListener("click", (event) => {
+    if (!els.profileMenu?.hidden && !event.target.closest(".sidebar-account")) {
+      toggleProfileMenu(false);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") toggleProfileMenu(false);
+  });
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
   els.monthInput.addEventListener("change", loadSelectedMonth);
@@ -304,6 +317,7 @@ function bindEvents() {
 }
 
 function selectTab(name) {
+  toggleProfileMenu(false);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.tab === name);
   });
@@ -1145,6 +1159,7 @@ function updateAccountStatus() {
     if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
     if (els.sidebarUserEmail) els.sidebarUserEmail.textContent = authState.user.email;
     if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
+    if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = displayName;
     els.accountNote.textContent = authState.provider === "browser"
       ? "Аккаунт и данные хранятся локально в этом браузере, потому что серверный API на этом хостинге недоступен."
       : "Изменения будут сохраняться в вашем персональном аккаунте.";
@@ -1159,6 +1174,7 @@ function updateAccountStatus() {
     if (els.accountSession) els.accountSession.hidden = true;
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = false;
     if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = true;
+    if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = "Вход в персональный аккаунт";
   }
 
   const editingEnabled = isAuthenticated();
@@ -1166,9 +1182,13 @@ function updateAccountStatus() {
   if (els.saveMonthBtn) els.saveMonthBtn.disabled = !editingEnabled;
 }
 
-function openAccountSettings() {
-  selectTab("settings");
-  if (!isAuthenticated()) {
+function toggleProfileMenu(forceOpen) {
+  if (!els.profileMenu) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : els.profileMenu.hidden;
+  els.profileMenu.hidden = !shouldOpen;
+  els.sidebarLoginBtn?.setAttribute("aria-expanded", String(shouldOpen));
+  els.sidebarUserBtn?.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen && !isAuthenticated()) {
     els.authEmailInput?.focus();
   }
 }

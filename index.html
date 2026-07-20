@@ -42,7 +42,53 @@
           </button>
         </nav>
         <div class="sidebar-account">
-          <button class="sidebar-login" id="sidebarLoginBtn" type="button">
+          <div class="profile-menu" id="profileMenu" role="dialog" aria-label="Профиль пользователя" hidden>
+            <div class="profile-menu-head">
+              <div>
+                <strong>Профиль</strong>
+                <span id="profileMenuSubtitle">Вход в персональный аккаунт</span>
+              </div>
+              <button class="profile-menu-close" id="profileMenuCloseBtn" type="button" aria-label="Закрыть меню">×</button>
+            </div>
+            <div class="account-panel">
+              <div class="account-login-form" id="accountLoginForm">
+                <label>
+                  Email
+                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" />
+                </label>
+                <label>
+                  Пароль
+                  <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="Минимум 8 символов" />
+                </label>
+                <div class="profile-menu-buttons">
+                  <button class="secondary-button" id="registerBtn" type="button">Регистрация</button>
+                  <button class="primary-button" id="loginBtn" type="button">Войти</button>
+                </div>
+              </div>
+              <div class="account-session" id="accountSession" hidden>
+                <div class="profile-fields">
+                  <label>
+                    Имя
+                    <input id="profileFirstNameInput" type="text" autocomplete="given-name" maxlength="80" />
+                  </label>
+                  <label>
+                    Фамилия
+                    <input id="profileLastNameInput" type="text" autocomplete="family-name" maxlength="80" />
+                  </label>
+                </div>
+                <div class="profile-email">
+                  <span>Почта аккаунта</span>
+                  <strong class="account-status" id="accountStatus"></strong>
+                </div>
+                <div class="profile-menu-buttons">
+                  <button class="primary-button" id="saveProfileBtn" type="button">Сохранить</button>
+                  <button class="ghost-button" id="logoutBtn" type="button">Выйти</button>
+                </div>
+              </div>
+            </div>
+            <p class="account-note" id="accountNote">Войдите, чтобы сохранять персональные финансовые данные.</p>
+          </div>
+          <button class="sidebar-login" id="sidebarLoginBtn" type="button" aria-haspopup="dialog" aria-expanded="false">
             <span class="sidebar-avatar sidebar-avatar-guest" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="4" />
@@ -55,7 +101,7 @@
             </span>
             <span class="sidebar-user-arrow" aria-hidden="true">›</span>
           </button>
-          <button class="sidebar-user" id="sidebarUserBtn" type="button" hidden>
+          <button class="sidebar-user" id="sidebarUserBtn" type="button" aria-haspopup="dialog" aria-expanded="false" hidden>
             <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">TG</span>
             <span class="sidebar-user-copy">
               <strong id="sidebarUserName">Tony Gazz</strong>
@@ -151,7 +197,7 @@
         <div class="section-head">
           <div>
             <h2>Настройки</h2>
-            <p>Войдите в аккаунт, чтобы загружать и сохранять персональные финансовые данные.</p>
+            <p>Настройте внешний вид приложения.</p>
           </div>
         </div>
 
@@ -170,47 +216,6 @@
             </label>
           </div>
 
-          <div class="settings-card">
-            <div class="settings-card-head">
-              <h3>Аккаунт</h3>
-              <p>Персональные данные хранятся на сервере и доступны после входа в систему.</p>
-            </div>
-            <div class="account-panel">
-              <div class="account-login-form" id="accountLoginForm">
-                <label>
-                  Email
-                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" />
-                </label>
-                <label>
-                  Пароль
-                  <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="Минимум 8 символов" />
-                </label>
-                <button class="secondary-button" id="registerBtn" type="button">Регистрация</button>
-                <button class="primary-button" id="loginBtn" type="button">Войти</button>
-              </div>
-              <div class="account-session" id="accountSession" hidden>
-                <div class="profile-fields">
-                  <label>
-                    Имя
-                    <input id="profileFirstNameInput" type="text" autocomplete="given-name" maxlength="80" />
-                  </label>
-                  <label>
-                    Фамилия
-                    <input id="profileLastNameInput" type="text" autocomplete="family-name" maxlength="80" />
-                  </label>
-                </div>
-                <div class="profile-actions">
-                  <div class="profile-email">
-                    <span>Почта аккаунта</span>
-                    <strong class="account-status" id="accountStatus"></strong>
-                  </div>
-                  <button class="primary-button" id="saveProfileBtn" type="button">Сохранить профиль</button>
-                  <button class="ghost-button" id="logoutBtn" type="button">Выйти</button>
-                </div>
-              </div>
-            </div>
-            <p class="account-note" id="accountNote">В гостевом режиме активы и история не сохраняются.</p>
-          </div>
         </div>
       </section>
 
@@ -326,6 +331,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260720-67"></script>
+    <script src="app.js?v=20260720-68"></script>
   </body>
 </html>
