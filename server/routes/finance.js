@@ -1,5 +1,10 @@
 import express from "express";
-import { loadFinanceState, saveFinanceState, validateFinanceState } from "../finance/state.js";
+import {
+  hasFinanceState,
+  loadFinanceState,
+  saveFinanceState,
+  validateFinanceState,
+} from "../finance/state.js";
 import { asyncHandler } from "../lib/async-handler.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -8,9 +13,13 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get("/state", asyncHandler(async (req, res) => {
-  const state = await loadFinanceState(req.user.id);
+  const [state, initialized] = await Promise.all([
+    loadFinanceState(req.user.id),
+    hasFinanceState(req.user.id),
+  ]);
   res.json({
     state,
+    initialized,
   });
 }));
 

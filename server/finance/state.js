@@ -124,6 +124,23 @@ export async function loadFinanceState(userId, db = { query }) {
   };
 }
 
+export async function hasFinanceState(userId, db = { query }) {
+  if (config.dataBackend === "file") {
+    const store = await readStore();
+    return Object.prototype.hasOwnProperty.call(store.financeStates, String(userId));
+  }
+
+  const result = await db.query(
+    `select exists (
+       select 1 from user_finance_state where user_id = $1
+       union all
+       select 1 from finance_snapshots where user_id = $1
+     ) as initialized`,
+    [userId]
+  );
+  return Boolean(result.rows[0]?.initialized);
+}
+
 export async function saveFinanceState(userId, state) {
   if (config.dataBackend === "file") {
     const store = await updateStore((current) => {
