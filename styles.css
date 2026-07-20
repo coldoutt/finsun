@@ -518,11 +518,42 @@ h2 {
 }
 
 .account-panel {
+  min-height: 38px;
+}
+
+.account-login-form,
+.account-session {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
   gap: 8px;
+}
+
+.account-login-form[hidden],
+.account-session[hidden] {
+  display: none;
+}
+
+.account-session {
+  justify-content: space-between;
+  width: 100%;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 6px 5px 12px;
+  background: var(--surface);
+}
+
+.account-identity > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .settings-card {
@@ -600,13 +631,12 @@ h2 {
 .account-status {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 11px;
-  background: var(--surface);
-  color: var(--muted-strong);
-  font-size: 12px;
+  min-height: 30px;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1408,7 +1438,6 @@ tfoot td {
 
   .account-panel {
     width: 100%;
-    justify-content: flex-start;
   }
 
   th,
@@ -1560,6 +1589,9 @@ tfoot td {
   .settings-field,
   .settings-field select,
   .account-panel,
+  .account-login-form,
+  .account-session,
+  .account-identity,
   .account-panel input,
   .month-picker .primary-button,
   .month-picker .ghost-button,
@@ -1569,5 +1601,11 @@ tfoot td {
   .account-status {
     width: 100%;
     max-width: none;
+  }
+
+  .account-identity {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px;
   }
 }
