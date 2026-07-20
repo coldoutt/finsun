@@ -4,6 +4,8 @@ create table if not exists users (
   id bigserial primary key,
   email citext not null unique,
   password_hash text not null,
+  first_name text not null default '',
+  last_name text not null default '',
   created_at timestamptz not null default now()
 );
 

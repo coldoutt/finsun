@@ -41,6 +41,29 @@
             Настройки
           </button>
         </nav>
+        <div class="sidebar-account">
+          <button class="sidebar-login" id="sidebarLoginBtn" type="button">
+            <span class="sidebar-avatar sidebar-avatar-guest" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+              </svg>
+            </span>
+            <span class="sidebar-user-copy">
+              <strong>Войти</strong>
+              <small>Персональный аккаунт</small>
+            </span>
+            <span class="sidebar-user-arrow" aria-hidden="true">›</span>
+          </button>
+          <button class="sidebar-user" id="sidebarUserBtn" type="button" hidden>
+            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">TG</span>
+            <span class="sidebar-user-copy">
+              <strong id="sidebarUserName">Tony Gazz</strong>
+              <small id="sidebarUserEmail">tonygazz@gmail.com</small>
+            </span>
+            <span class="sidebar-user-arrow" aria-hidden="true">›</span>
+          </button>
+        </div>
       </aside>
 
       <div class="main-content">
@@ -166,11 +189,24 @@
                 <button class="primary-button" id="loginBtn" type="button">Войти</button>
               </div>
               <div class="account-session" id="accountSession" hidden>
-                <div class="account-identity">
-                  <span>Вы вошли с почтой</span>
-                  <strong class="account-status" id="accountStatus"></strong>
+                <div class="profile-fields">
+                  <label>
+                    Имя
+                    <input id="profileFirstNameInput" type="text" autocomplete="given-name" maxlength="80" />
+                  </label>
+                  <label>
+                    Фамилия
+                    <input id="profileLastNameInput" type="text" autocomplete="family-name" maxlength="80" />
+                  </label>
                 </div>
-                <button class="ghost-button" id="logoutBtn" type="button">Выйти</button>
+                <div class="profile-actions">
+                  <div class="profile-email">
+                    <span>Почта аккаунта</span>
+                    <strong class="account-status" id="accountStatus"></strong>
+                  </div>
+                  <button class="primary-button" id="saveProfileBtn" type="button">Сохранить профиль</button>
+                  <button class="ghost-button" id="logoutBtn" type="button">Выйти</button>
+                </div>
               </div>
             </div>
             <p class="account-note" id="accountNote">В гостевом режиме активы и история не сохраняются.</p>
@@ -290,6 +326,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260720-66"></script>
+    <script src="app.js?v=20260720-67"></script>
   </body>
 </html>
