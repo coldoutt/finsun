@@ -204,6 +204,8 @@ const els = {
   registerBtn: document.querySelector("#registerBtn"),
   loginBtn: document.querySelector("#loginBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
+  accountLoginForm: document.querySelector("#accountLoginForm"),
+  accountSession: document.querySelector("#accountSession"),
   accountStatus: document.querySelector("#accountStatus"),
   accountNote: document.querySelector("#accountNote"),
   themeSelect: document.querySelector("#themeSelect"),
@@ -1124,15 +1126,17 @@ function updateAccountStatus() {
   if (!els.accountStatus || !els.accountNote) return;
 
   if (isAuthenticated()) {
-    els.accountStatus.textContent = `Выполнен вход: ${authState.user.email}`;
+    els.accountStatus.textContent = authState.user.email;
     els.accountNote.textContent = authState.provider === "browser"
       ? "Аккаунт и данные хранятся локально в этом браузере, потому что серверный API на этом хостинге недоступен."
       : "Изменения будут сохраняться в вашем персональном аккаунте.";
-    if (els.logoutBtn) els.logoutBtn.hidden = false;
+    if (els.accountLoginForm) els.accountLoginForm.hidden = true;
+    if (els.accountSession) els.accountSession.hidden = false;
   } else {
-    els.accountStatus.textContent = "Гостевой режим";
+    els.accountStatus.textContent = "";
     els.accountNote.textContent = "В гостевом режиме активы и история не сохраняются.";
-    if (els.logoutBtn) els.logoutBtn.hidden = true;
+    if (els.accountLoginForm) els.accountLoginForm.hidden = false;
+    if (els.accountSession) els.accountSession.hidden = true;
   }
 
   const editingEnabled = isAuthenticated();
