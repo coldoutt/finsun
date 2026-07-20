@@ -12,11 +12,16 @@ export function normalizeEmail(email) {
 
 export function sanitizeUser(user) {
   const defaults = getDefaultProfile(user.email);
+  const firstName = String(user.first_name || user.firstName || defaults.firstName);
+  const lastName = String(user.last_name || user.lastName || defaults.lastName);
+  const hasLegacyOwnerProfile = normalizeEmail(user.email) === "tonygazz@gmail.com"
+    && firstName === "Tony"
+    && lastName === "Gazz";
   return {
     id: Number(user.id),
     email: user.email,
-    firstName: String(user.first_name || user.firstName || defaults.firstName),
-    lastName: String(user.last_name || user.lastName || defaults.lastName),
+    firstName: hasLegacyOwnerProfile ? defaults.firstName : firstName,
+    lastName: hasLegacyOwnerProfile ? defaults.lastName : lastName,
     createdAt: user.created_at,
   };
 }
@@ -24,7 +29,7 @@ export function sanitizeUser(user) {
 export function getDefaultProfile(email) {
   const normalizedEmail = normalizeEmail(email);
   if (normalizedEmail === "tonygazz@gmail.com") {
-    return { firstName: "Tony", lastName: "Gazz" };
+    return { firstName: "Антон", lastName: "Гасилин" };
   }
 
   const parts = normalizedEmail
@@ -41,8 +46,8 @@ export function getDefaultProfile(email) {
 export function validateProfile(firstName, lastName) {
   const normalizedFirstName = String(firstName || "").trim();
   const normalizedLastName = String(lastName || "").trim();
-  if (!normalizedFirstName || normalizedFirstName.length > 80 || normalizedLastName.length > 80) {
-    return { ok: false, message: "Укажите имя длиной до 80 символов." };
+  if (!normalizedFirstName || !normalizedLastName || normalizedFirstName.length > 80 || normalizedLastName.length > 80) {
+    return { ok: false, message: "Укажите имя и фамилию длиной до 80 символов." };
   }
   return { ok: true, firstName: normalizedFirstName, lastName: normalizedLastName };
 }
@@ -83,9 +88,9 @@ export async function findUserByEmail(email) {
   return result.rows[0] || null;
 }
 
-export async function createUser(email, password) {
+export async function createUser(email, password, inputProfile = null) {
   const passwordHash = await hashPassword(password);
-  const profile = getDefaultProfile(email);
+  const profile = inputProfile || getDefaultProfile(email);
 
   if (config.dataBackend === "file") {
     const store = await updateStore((current) => {

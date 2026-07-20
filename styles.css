@@ -119,6 +119,7 @@ button {
 
 .sidebar {
   position: sticky;
+  z-index: 20;
   top: 0;
   display: flex;
   flex-direction: column;
@@ -716,6 +717,109 @@ h2 {
 
 .profile-menu .account-panel input {
   width: 100%;
+}
+
+.auth-form-intro {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.auth-form-intro strong {
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+}
+
+.auth-form-intro span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.auth-register-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.auth-register-fields[hidden],
+#authPasswordConfirmField[hidden],
+.auth-submit[hidden],
+.auth-inline-message[hidden] {
+  display: none;
+}
+
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 76px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 7px;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 800;
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover {
+  background: var(--surface-muted);
+}
+
+.auth-submit {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 2px;
+}
+
+.auth-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.auth-mode-switch button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 850;
+}
+
+.auth-mode-switch button:hover {
+  text-decoration: underline;
+}
+
+.auth-inline-message {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--negative-text), transparent 70%);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--danger-surface);
+  color: var(--negative-text);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
 }
 
 .profile-menu-buttons {
@@ -1681,6 +1785,10 @@ tfoot td {
     grid-template-columns: repeat(4, minmax(78px, 1fr));
     overflow-x: auto;
     padding-bottom: 2px;
+  }
+
+  .auth-register-fields {
+    grid-template-columns: 1fr;
   }
 
   .side-nav-item {

@@ -35,6 +35,15 @@ router.post("/register", authRateLimit, asyncHandler(async (req, res) => {
     });
   }
 
+  const profileValidation = validateProfile(req.body?.firstName, req.body?.lastName);
+  if (!profileValidation.ok) {
+    recordAuthFailure(req.authRateLimitKey);
+    return res.status(400).json({
+      error: "invalid_profile",
+      message: profileValidation.message,
+    });
+  }
+
   const existingUser = await findUserByEmail(validation.email);
   if (existingUser) {
     recordAuthFailure(req.authRateLimitKey);
@@ -44,7 +53,7 @@ router.post("/register", authRateLimit, asyncHandler(async (req, res) => {
     });
   }
 
-  const user = await createUser(validation.email, validation.password);
+  const user = await createUser(validation.email, validation.password, profileValidation);
   const session = await createSession(user.id);
   clearAuthFailures(req.authRateLimitKey);
   setSessionCookie(res, session.token);

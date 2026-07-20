@@ -173,6 +173,7 @@ let authState = {
   provider: "api",
   user: null,
 };
+let authMode = "login";
 
 const els = {
   totalMetric: document.querySelector("#totalMetric"),
@@ -201,6 +202,16 @@ const els = {
   saveNotice: document.querySelector("#saveNotice"),
   authEmailInput: document.querySelector("#authEmailInput"),
   authPasswordInput: document.querySelector("#authPasswordInput"),
+  authPasswordConfirmInput: document.querySelector("#authPasswordConfirmInput"),
+  authPasswordConfirmField: document.querySelector("#authPasswordConfirmField"),
+  authFirstNameInput: document.querySelector("#authFirstNameInput"),
+  authLastNameInput: document.querySelector("#authLastNameInput"),
+  authRegisterFields: document.querySelector("#authRegisterFields"),
+  authFormTitle: document.querySelector("#authFormTitle"),
+  authFormDescription: document.querySelector("#authFormDescription"),
+  authInlineMessage: document.querySelector("#authInlineMessage"),
+  authModePrompt: document.querySelector("#authModePrompt"),
+  authModeToggleBtn: document.querySelector("#authModeToggleBtn"),
   registerBtn: document.querySelector("#registerBtn"),
   loginBtn: document.querySelector("#loginBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
@@ -268,6 +279,26 @@ function bindEvents() {
   els.sidebarLoginBtn?.addEventListener("click", () => toggleProfileMenu());
   els.sidebarUserBtn?.addEventListener("click", () => toggleProfileMenu());
   els.profileMenuCloseBtn?.addEventListener("click", () => toggleProfileMenu(false));
+  els.authModeToggleBtn?.addEventListener("click", () => {
+    setAuthMode(authMode === "login" ? "register" : "login");
+  });
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => togglePasswordVisibility(button));
+  });
+  [
+    els.authFirstNameInput,
+    els.authLastNameInput,
+    els.authEmailInput,
+    els.authPasswordInput,
+    els.authPasswordConfirmInput,
+  ].forEach((input) => {
+    input?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      if (authMode === "register") registerAccount();
+      else loginAccount();
+    });
+  });
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   els.addRowBtn.addEventListener("click", addAssetRow);
 
@@ -1189,8 +1220,54 @@ function toggleProfileMenu(forceOpen) {
   els.sidebarLoginBtn?.setAttribute("aria-expanded", String(shouldOpen));
   els.sidebarUserBtn?.setAttribute("aria-expanded", String(shouldOpen));
   if (shouldOpen && !isAuthenticated()) {
+    clearAuthMessage();
     els.authEmailInput?.focus();
   }
+}
+
+function setAuthMode(mode) {
+  authMode = mode === "register" ? "register" : "login";
+  const isRegister = authMode === "register";
+  if (els.authRegisterFields) els.authRegisterFields.hidden = !isRegister;
+  if (els.authPasswordConfirmField) els.authPasswordConfirmField.hidden = !isRegister;
+  if (els.registerBtn) els.registerBtn.hidden = !isRegister;
+  if (els.loginBtn) els.loginBtn.hidden = isRegister;
+  if (els.authFormTitle) els.authFormTitle.textContent = isRegister ? "Создайте аккаунт" : "С возвращением";
+  if (els.authFormDescription) {
+    els.authFormDescription.textContent = isRegister
+      ? "Зарегистрируйтесь, чтобы хранить персональную финансовую историю."
+      : "Войдите, чтобы открыть свои финансовые данные.";
+  }
+  if (els.authModePrompt) els.authModePrompt.textContent = isRegister ? "Уже есть аккаунт?" : "Нет аккаунта?";
+  if (els.authModeToggleBtn) els.authModeToggleBtn.textContent = isRegister ? "Войти" : "Зарегистрироваться";
+  if (els.authPasswordInput) {
+    els.authPasswordInput.autocomplete = isRegister ? "new-password" : "current-password";
+  }
+  if (!isRegister && els.authPasswordConfirmInput) els.authPasswordConfirmInput.value = "";
+  clearAuthMessage();
+  if (isRegister) els.authFirstNameInput?.focus();
+  else els.authEmailInput?.focus();
+}
+
+function togglePasswordVisibility(button) {
+  const input = document.querySelector(`#${button.dataset.passwordToggle}`);
+  if (!input) return;
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  button.textContent = shouldShow ? "Скрыть" : "Показать";
+  button.setAttribute("aria-label", shouldShow ? "Скрыть пароль" : "Показать пароль");
+}
+
+function showAuthMessage(message) {
+  if (!els.authInlineMessage) return;
+  els.authInlineMessage.textContent = message;
+  els.authInlineMessage.hidden = false;
+}
+
+function clearAuthMessage() {
+  if (!els.authInlineMessage) return;
+  els.authInlineMessage.textContent = "";
+  els.authInlineMessage.hidden = true;
 }
 
 async function saveProfile() {
@@ -1198,8 +1275,8 @@ async function saveProfile() {
 
   const firstName = els.profileFirstNameInput?.value.trim() || "";
   const lastName = els.profileLastNameInput?.value.trim() || "";
-  if (!firstName || firstName.length > 80 || lastName.length > 80) {
-    showSaveNotice("Укажите имя длиной до 80 символов", "error");
+  if (!firstName || !lastName || firstName.length > 80 || lastName.length > 80) {
+    showSaveNotice("Укажите имя и фамилию длиной до 80 символов", "error");
     return;
   }
 
@@ -1232,7 +1309,22 @@ function readAuthCredentials() {
 
 async function registerAccount() {
   try {
-    const credentials = readAuthCredentials();
+    clearAuthMessage();
+    const credentials = {
+      ...readAuthCredentials(),
+      firstName: els.authFirstNameInput?.value.trim() || "",
+      lastName: els.authLastNameInput?.value.trim() || "",
+    };
+    const passwordConfirm = els.authPasswordConfirmInput?.value || "";
+    if (!credentials.firstName || !credentials.lastName) {
+      throw new Error("Укажите имя и фамилию.");
+    }
+    if (credentials.password.length < 8) {
+      throw new Error("Пароль должен содержать минимум 8 символов.");
+    }
+    if (credentials.password !== passwordConfirm) {
+      throw new Error("Пароли не совпадают.");
+    }
     if (authState.provider === "browser") {
       authState.user = await registerBrowserAccount(credentials);
     } else {
@@ -1249,12 +1341,14 @@ async function registerAccount() {
     showSaveNotice("Аккаунт создан, вход выполнен");
   } catch (error) {
     console.error("Register failed", error);
+    showAuthMessage(error.message || "Не удалось создать аккаунт");
     showSaveNotice(error.message || "Не удалось создать аккаунт", "error");
   }
 }
 
 async function loginAccount() {
   try {
+    clearAuthMessage();
     const credentials = readAuthCredentials();
     if (authState.provider === "browser") {
       authState.user = await loginBrowserAccount(credentials);
@@ -1272,6 +1366,7 @@ async function loginAccount() {
     showSaveNotice("Вход выполнен");
   } catch (error) {
     console.error("Login failed", error);
+    showAuthMessage(error.message || "Не удалось выполнить вход");
     showSaveNotice(error.message || "Не удалось выполнить вход", "error");
   }
 }
@@ -1289,6 +1384,7 @@ async function logoutAccount() {
 
   authState.user = null;
   clearAuthPassword();
+  setAuthMode("login");
   updateAccountStatus();
   state = buildGuestState();
   loadSelectedMonth({ preserveDraft: true });
@@ -1298,6 +1394,7 @@ async function logoutAccount() {
 
 function clearAuthPassword() {
   if (els.authPasswordInput) els.authPasswordInput.value = "";
+  if (els.authPasswordConfirmInput) els.authPasswordConfirmInput.value = "";
 }
 
 async function loadState() {
@@ -1443,7 +1540,8 @@ async function registerBrowserAccount(credentials) {
   const user = {
     id: store.nextUserId,
     email,
-    ...getDefaultUserProfile(email),
+    firstName: String(credentials.firstName || "").trim(),
+    lastName: String(credentials.lastName || "").trim(),
     passwordHash: await hashBrowserPassword(credentials.password),
     createdAt: new Date().toISOString(),
   };
@@ -1520,16 +1618,19 @@ function updateBrowserProfile(firstName, lastName) {
 
 function getUserProfile(user) {
   const defaults = getDefaultUserProfile(user?.email);
+  const isLegacyOwnerProfile = String(user?.email || "").toLowerCase() === OWNER_EMAIL
+    && user?.firstName === "Tony"
+    && user?.lastName === "Gazz";
   return {
-    firstName: String(user?.firstName || defaults.firstName).trim(),
-    lastName: String(user?.lastName || defaults.lastName).trim(),
+    firstName: String(isLegacyOwnerProfile ? defaults.firstName : user?.firstName || defaults.firstName).trim(),
+    lastName: String(isLegacyOwnerProfile ? defaults.lastName : user?.lastName || defaults.lastName).trim(),
   };
 }
 
 function getDefaultUserProfile(email) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (normalizedEmail === OWNER_EMAIL) {
-    return { firstName: "Tony", lastName: "Gazz" };
+    return { firstName: "Антон", lastName: "Гасилин" };
   }
   const parts = normalizedEmail
     .split("@")[0]

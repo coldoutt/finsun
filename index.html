@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260709-47" />
+    <link rel="stylesheet" href="styles.css?v=20260720-70" />
   </head>
   <body>
     <main class="app-shell">
@@ -52,17 +52,44 @@
             </div>
             <div class="account-panel">
               <div class="account-login-form" id="accountLoginForm">
+                <div class="auth-form-intro">
+                  <strong id="authFormTitle">С возвращением</strong>
+                  <span id="authFormDescription">Войдите, чтобы открыть свои финансовые данные.</span>
+                </div>
+                <div class="auth-register-fields" id="authRegisterFields" hidden>
+                  <label>
+                    Имя
+                    <input id="authFirstNameInput" type="text" autocomplete="given-name" maxlength="80" placeholder="Антон" required />
+                  </label>
+                  <label>
+                    Фамилия
+                    <input id="authLastNameInput" type="text" autocomplete="family-name" maxlength="80" placeholder="Гасилин" required />
+                  </label>
+                </div>
                 <label>
                   Email
-                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" />
+                  <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" required />
                 </label>
                 <label>
                   Пароль
-                  <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="Минимум 8 символов" />
+                  <span class="password-field">
+                    <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="8" placeholder="Минимум 8 символов" required />
+                    <button class="password-toggle" type="button" data-password-toggle="authPasswordInput" aria-label="Показать пароль">Показать</button>
+                  </span>
                 </label>
-                <div class="profile-menu-buttons">
-                  <button class="secondary-button" id="registerBtn" type="button">Регистрация</button>
-                  <button class="primary-button" id="loginBtn" type="button">Войти</button>
+                <label id="authPasswordConfirmField" hidden>
+                  Повторите пароль
+                  <span class="password-field">
+                    <input id="authPasswordConfirmInput" type="password" autocomplete="new-password" minlength="8" placeholder="Повторите пароль" required />
+                    <button class="password-toggle" type="button" data-password-toggle="authPasswordConfirmInput" aria-label="Показать повтор пароля">Показать</button>
+                  </span>
+                </label>
+                <p class="auth-inline-message" id="authInlineMessage" hidden></p>
+                <button class="primary-button auth-submit" id="loginBtn" type="button">Войти</button>
+                <button class="primary-button auth-submit" id="registerBtn" type="button" hidden>Создать аккаунт</button>
+                <div class="auth-mode-switch">
+                  <span id="authModePrompt">Нет аккаунта?</span>
+                  <button id="authModeToggleBtn" type="button">Зарегистрироваться</button>
                 </div>
               </div>
               <div class="account-session" id="accountSession" hidden>
@@ -102,9 +129,9 @@
             <span class="sidebar-user-arrow" aria-hidden="true">›</span>
           </button>
           <button class="sidebar-user" id="sidebarUserBtn" type="button" aria-haspopup="dialog" aria-expanded="false" hidden>
-            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">TG</span>
+            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">АГ</span>
             <span class="sidebar-user-copy">
-              <strong id="sidebarUserName">Tony Gazz</strong>
+              <strong id="sidebarUserName">Антон Гасилин</strong>
               <small id="sidebarUserEmail">tonygazz@gmail.com</small>
             </span>
             <span class="sidebar-user-arrow" aria-hidden="true">›</span>
@@ -331,6 +358,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260720-68"></script>
+    <script src="app.js?v=20260720-70"></script>
   </body>
 </html>
