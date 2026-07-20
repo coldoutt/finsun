@@ -3,6 +3,7 @@ const AUTH_STORAGE_KEY = "finance-auth-v1";
 const THEME_KEY = "finance-theme";
 const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const OWNER_EMAIL = "tonygazz@gmail.com";
 
 const months = [
   "Январь",
@@ -19,7 +20,7 @@ const months = [
   "Декабрь",
 ];
 
-const templateRows = [
+const ownerSeedRows = [
   ["Банк. Карта", "Альфа", 0],
   ["Банк. Карта", "Яндекс", 83660],
   ["Банк. Карта", "Т-Банк", 0],
@@ -43,7 +44,7 @@ const templateRows = [
   ["Наличные", "Евро", 190000],
 ].map(([category, name, amount]) => ({ category, name, amount }));
 
-const sampleRecords = [
+const ownerSeedRecords = [
   [2018, 0, 1669978],
   [2018, 1, 1705192],
   [2018, 2, 1615314],
@@ -150,14 +151,14 @@ const sampleRecords = [
   key: recordKey(year, month),
   year,
   month,
-  rows: cloneRows(templateRows),
+  rows: cloneRows(ownerSeedRows),
   total,
   savedAt: new Date().toISOString(),
 }));
 
 let state = {
   records: [],
-  currentRows: cloneRows(templateRows),
+  currentRows: [],
 };
 let chartMode = "bar";
 let selectedChartYears = new Set();
@@ -308,9 +309,9 @@ function loadSelectedMonth(options = {}) {
   if (existing) {
     state.currentRows = cloneRows(existing.rows);
   } else if (options.preserveDraft) {
-    state.currentRows = cloneRows(state.currentRows?.length ? state.currentRows : templateRows);
+    state.currentRows = cloneRows(state.currentRows || []);
   } else {
-    state.currentRows = cloneRows(templateRows);
+    state.currentRows = [];
   }
   renderAssets();
 }
@@ -414,10 +415,10 @@ function formatSelectedYears(years) {
 }
 
 function renderAssets() {
-  const rows = state.currentRows ?? cloneRows(templateRows);
+  const rows = state.currentRows ?? [];
   const categoryTotals = getCategoryTotals(rows);
   const total = sumRows(rows);
-  const categorySuggestions = [...new Set(rows.map((row) => row.category).concat(templateRows.map((row) => row.category)))];
+  const categorySuggestions = [...new Set(rows.map((row) => row.category))];
   const groups = getGroupedRows(rows);
 
   document.querySelector("#categorySuggestions").innerHTML = categorySuggestions
@@ -1224,7 +1225,7 @@ function loadBrowserState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      return normalizeState(JSON.parse(saved), { fallbackRecords: sampleRecords });
+      return normalizeState(JSON.parse(saved), { fallbackRecords: [] });
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
@@ -1256,6 +1257,10 @@ async function reloadStateFromAccount() {
 
 async function loadStateFromApi() {
   const response = await apiRequest("/finance/state");
+  if (isOwnerAccount() && response.initialized === false) {
+    const seeded = await saveStateToApi(buildOwnerSeedState());
+    return normalizeState(seeded.state, { fallbackRecords: [] });
+  }
   return normalizeState(response.state, { fallbackRecords: [] });
 }
 
@@ -1388,7 +1393,12 @@ function clearBrowserSession() {
 
 function loadStateFromBrowserAccount() {
   const store = readBrowserAuthStore();
-  const rawState = store.financeStates[String(authState.user.id)] || null;
+  const userKey = String(authState.user.id);
+  if (!Object.prototype.hasOwnProperty.call(store.financeStates, userKey) && isOwnerAccount()) {
+    store.financeStates[userKey] = buildOwnerSeedState();
+    writeBrowserAuthStore(store);
+  }
+  const rawState = store.financeStates[userKey] || null;
   return normalizeState(rawState, { fallbackRecords: [] });
 }
 
@@ -1418,7 +1428,18 @@ function isAuthenticated() {
 }
 
 function buildGuestState() {
-  return normalizeState(null, { fallbackRecords: sampleRecords });
+  return normalizeState(null, { fallbackRecords: [] });
+}
+
+function isOwnerAccount() {
+  return String(authState.user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
+}
+
+function buildOwnerSeedState() {
+  return {
+    records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
+    currentRows: cloneRows(ownerSeedRows),
+  };
 }
 
 function showSaveNotice(message, tone = "success") {
@@ -1433,11 +1454,11 @@ function showSaveNotice(message, tone = "success") {
 }
 
 function normalizeState(value, options = {}) {
-  const fallbackRecords = Array.isArray(options.fallbackRecords) ? options.fallbackRecords : sampleRecords;
+  const fallbackRecords = Array.isArray(options.fallbackRecords) ? options.fallbackRecords : [];
   const records = Array.isArray(value?.records)
     ? value.records.map(normalizeRecordState).filter(Boolean)
     : fallbackRecords.map((record) => normalizeRecordState(record)).filter(Boolean);
-  const fallbackRows = records.at(-1)?.rows?.length ? records.at(-1).rows : templateRows;
+  const fallbackRows = records.at(-1)?.rows?.length ? records.at(-1).rows : [];
   const currentRows = Array.isArray(value?.currentRows) && value.currentRows.length
     ? value.currentRows.map(normalizeRowState)
     : cloneRows(fallbackRows);
