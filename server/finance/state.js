@@ -54,6 +54,7 @@ export function validateFinanceState(input) {
     state: {
       records,
       currentRows,
+      ownerHistoryVersion: Number(input?.ownerHistoryVersion || 0),
     },
   };
 }
@@ -65,6 +66,7 @@ export async function loadFinanceState(userId, db = { query }) {
     return {
       records: Array.isArray(state.records) ? state.records.map(normalizeRecord) : [],
       currentRows: Array.isArray(state.currentRows) ? state.currentRows.map(normalizeRow) : [],
+      ownerHistoryVersion: Number(state.ownerHistoryVersion || 0),
     };
   }
 
@@ -87,7 +89,7 @@ export async function loadFinanceState(userId, db = { query }) {
       [userId]
     ),
     db.query(
-      `select current_rows
+      `select current_rows, owner_history_version
        from user_finance_state
        where user_id = $1
        limit 1`,
@@ -124,6 +126,7 @@ export async function loadFinanceState(userId, db = { query }) {
   return {
     records: Array.from(bySnapshot.values()),
     currentRows,
+    ownerHistoryVersion: Number(currentRowsResult.rows[0]?.owner_history_version || 0),
   };
 }
 
@@ -150,6 +153,7 @@ export async function saveFinanceState(userId, state) {
       current.financeStates[String(userId)] = {
         records: state.records.map(normalizeRecord),
         currentRows: state.currentRows.map(normalizeRow),
+        ownerHistoryVersion: Number(state.ownerHistoryVersion || 0),
         updatedAt: new Date().toISOString(),
       };
       return current;
@@ -159,6 +163,7 @@ export async function saveFinanceState(userId, state) {
     return {
       records: saved.records.map(normalizeRecord),
       currentRows: saved.currentRows.map(normalizeRow),
+      ownerHistoryVersion: Number(saved.ownerHistoryVersion || 0),
     };
   }
 
@@ -184,13 +189,14 @@ export async function saveFinanceState(userId, state) {
     }
 
     await client.query(
-      `insert into user_finance_state (user_id, current_rows, updated_at)
-       values ($1, $2::jsonb, now())
+      `insert into user_finance_state (user_id, current_rows, owner_history_version, updated_at)
+       values ($1, $2::jsonb, $3, now())
        on conflict (user_id)
        do update set
          current_rows = excluded.current_rows,
+         owner_history_version = excluded.owner_history_version,
          updated_at = now()`,
-      [userId, JSON.stringify(state.currentRows)]
+      [userId, JSON.stringify(state.currentRows), Number(state.ownerHistoryVersion || 0)]
     );
 
     return loadFinanceState(userId, client);

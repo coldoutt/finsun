@@ -3,7 +3,7 @@ const THEME_KEY = "finance-theme";
 const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const OWNER_EMAIL = "tonygazz@gmail.com";
-const OWNER_SEED_LAST_RECORD_KEY = "2026-07";
+const OWNER_HISTORY_VERSION = 1;
 
 const months = [
   "Январь",
@@ -1442,20 +1442,22 @@ function isOwnerAccount() {
 }
 
 function needsOwnerHistoryMigration(value) {
-  return !Array.isArray(value?.records)
-    || !value.records.some((record) => record?.key === OWNER_SEED_LAST_RECORD_KEY);
+  return Number(value?.ownerHistoryVersion || 0) < OWNER_HISTORY_VERSION;
 }
 
 async function buildOwnerSeedState() {
   try {
     const response = await fetch("finance.json", { cache: "no-store" });
     if (!response.ok) throw new Error(`Seed data error: ${response.status}`);
-    return normalizeState(await response.json(), { fallbackRecords: [] });
+    const state = normalizeState(await response.json(), { fallbackRecords: [] });
+    state.ownerHistoryVersion = OWNER_HISTORY_VERSION;
+    return state;
   } catch (error) {
     console.error("Owner seed data load failed", error);
     return {
       records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
       currentRows: cloneRows(ownerSeedRows),
+      ownerHistoryVersion: OWNER_HISTORY_VERSION,
     };
   }
 }
@@ -1484,6 +1486,7 @@ function normalizeState(value, options = {}) {
   return {
     records,
     currentRows: cloneRows(currentRows),
+    ownerHistoryVersion: Number(value?.ownerHistoryVersion || 0),
   };
 }
 

@@ -19,6 +19,7 @@ create table if not exists user_sessions (
 create table if not exists user_finance_state (
   user_id bigint primary key references users(id) on delete cascade,
   current_rows jsonb not null default '[]'::jsonb,
+  owner_history_version integer not null default 0,
   updated_at timestamptz not null default now()
 );
 
