@@ -28,6 +28,12 @@ Backend:
 - `PUT /api/finance/state`
 - `GET /api/metrics`
 
+Метрики ЦБ на GitHub Pages:
+- Актуальные курсы USD/EUR и инфляция хранятся в `metrics.json`.
+- Workflow `.github/workflows/update-metrics.yml` проверяет данные ЦБ каждый час.
+- Новый коммит создаётся только при изменении значений.
+- Обновить снимок вручную можно командой `npm run metrics:update`.
+
 Важно:
 - Персональные данные теперь предназначены для хранения в PostgreSQL через backend.
 - В локальном dev-режиме без БД они могут храниться в `server/data/app-data.json`.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "db:migrate": "node server/scripts/migrate.js",
+    "metrics:update": "node server/scripts/update-static-metrics.js",
     "server:dev": "node --watch server/index.js",
     "server:start": "node server/index.js",
     "web:start": "node server/scripts/static-server.js"

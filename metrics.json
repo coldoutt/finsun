@@ -1,0 +1,18 @@
+{
+  "metrics": {
+    "rates": {
+      "ok": true,
+      "source": "ЦБ РФ",
+      "date": "21.07.2026",
+      "usd": 78.3159,
+      "eur": 89.5542
+    },
+    "inflation": {
+      "ok": true,
+      "source": "ЦБ РФ",
+      "period": "06.2026",
+      "value": 4
+    },
+    "fetchedAt": "2026-07-20T21:10:36.891Z"
+  }
+}

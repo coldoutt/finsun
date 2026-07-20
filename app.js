@@ -2,6 +2,7 @@ const AUTH_STORAGE_KEY = "finance-auth-v1";
 const THEME_KEY = "finance-theme";
 const API_BASE = resolveApiBase();
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finance/main/metrics.json";
 const OWNER_EMAIL = "tonygazz@gmail.com";
 const OWNER_HISTORY_VERSION = 1;
 
@@ -669,7 +670,7 @@ async function updateExternalMetrics() {
   setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Загрузка", "ЦБ РФ");
 
   try {
-    const response = await apiRequest("/metrics");
+    const response = await loadExternalMetrics();
     const rates = response.metrics?.rates;
     const inflation = response.metrics?.inflation;
 
@@ -698,6 +699,34 @@ async function updateExternalMetrics() {
     setExternalMetric(els.eurRateMetric, els.eurRateMeta, "Нет данных", "ЦБ РФ недоступен");
     setExternalMetric(els.inflationMetric, els.inflationMeta, "Нет данных", "ЦБ РФ недоступен");
   }
+}
+
+async function loadExternalMetrics() {
+  if (!isStaticDeployment()) {
+    try {
+      return await apiRequest("/metrics");
+    } catch (error) {
+      console.warn("Metrics API is unavailable, using the static snapshot", error);
+    }
+  }
+
+  const staticUrls = isStaticDeployment()
+    ? [STATIC_METRICS_URL, new URL("metrics.json", window.location.href).href]
+    : ["metrics.json"];
+  let lastError = null;
+
+  for (const staticUrl of staticUrls) {
+    try {
+      const separator = staticUrl.includes("?") ? "&" : "?";
+      const response = await fetch(`${staticUrl}${separator}updated=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Static metrics error: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Static metrics are unavailable");
 }
 
 function setExternalMetric(valueElement, metaElement, value, meta) {
