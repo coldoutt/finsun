@@ -231,6 +231,9 @@ const els = {
   profileMenu: document.querySelector("#profileMenu"),
   profileMenuCloseBtn: document.querySelector("#profileMenuCloseBtn"),
   profileMenuSubtitle: document.querySelector("#profileMenuSubtitle"),
+  pageKicker: document.querySelector("#pageKicker"),
+  pageTitle: document.querySelector("#pageTitle"),
+  pageSubtitle: document.querySelector("#pageSubtitle"),
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
@@ -349,6 +352,32 @@ function bindEvents() {
 }
 
 function selectTab(name) {
+  const pageCopy = {
+    dashboard: {
+      kicker: "Обзор портфеля",
+      title: "Дашборд",
+      subtitle: "Ваш капитал, динамика и ключевые показатели в одном месте.",
+    },
+    assets: {
+      kicker: "Управление капиталом",
+      title: "Активы",
+      subtitle: "Обновляйте структуру портфеля и сохраняйте итог каждого месяца.",
+    },
+    history: {
+      kicker: "Финансовый архив",
+      title: "История",
+      subtitle: "Сравнивайте месяцы и наблюдайте долгосрочную динамику капитала.",
+    },
+    settings: {
+      kicker: "Персонализация",
+      title: "Настройки",
+      subtitle: "Настройте внешний вид финансового пространства под себя.",
+    },
+  };
+  const copy = pageCopy[name] || pageCopy.dashboard;
+  if (els.pageKicker) els.pageKicker.textContent = copy.kicker;
+  if (els.pageTitle) els.pageTitle.textContent = copy.title;
+  if (els.pageSubtitle) els.pageSubtitle.textContent = copy.subtitle;
   toggleProfileMenu(false);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.tab === name);

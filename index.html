@@ -4,11 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Финансовые итоги</title>
-    <link rel="stylesheet" href="styles.css?v=20260720-70" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=20260721-72" />
   </head>
   <body>
     <main class="app-shell">
       <aside class="sidebar" aria-label="Навигация">
+        <div class="sidebar-brand" aria-label="Финансовые итоги">
+          <span></span><span></span><span></span><span></span>
+        </div>
         <nav class="side-nav" aria-label="Основные разделы">
           <button class="side-nav-item is-active" type="button" data-side-tab="dashboard">
             <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -115,7 +121,7 @@
             </div>
             <p class="account-note" id="accountNote">Войдите, чтобы сохранять персональные финансовые данные.</p>
           </div>
-          <button class="sidebar-login" id="sidebarLoginBtn" type="button" aria-haspopup="dialog" aria-expanded="false">
+          <button class="sidebar-login" id="sidebarLoginBtn" type="button" aria-label="Войти в аккаунт" aria-haspopup="dialog" aria-expanded="false">
             <span class="sidebar-avatar sidebar-avatar-guest" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="4" />
@@ -128,7 +134,7 @@
             </span>
             <span class="sidebar-user-arrow" aria-hidden="true">›</span>
           </button>
-          <button class="sidebar-user" id="sidebarUserBtn" type="button" aria-haspopup="dialog" aria-expanded="false" hidden>
+          <button class="sidebar-user" id="sidebarUserBtn" type="button" aria-label="Открыть профиль пользователя" aria-haspopup="dialog" aria-expanded="false" hidden>
             <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">АГ</span>
             <span class="sidebar-user-copy">
               <strong id="sidebarUserName">Антон Гасилин</strong>
@@ -140,6 +146,17 @@
       </aside>
 
       <div class="main-content">
+      <header class="workspace-header">
+        <div class="workspace-heading">
+          <span class="workspace-kicker" id="pageKicker">Обзор портфеля</span>
+          <h1 id="pageTitle">Дашборд</h1>
+          <p id="pageSubtitle">Ваш капитал, динамика и ключевые показатели в одном месте.</p>
+        </div>
+        <div class="workspace-status" aria-label="Статус данных">
+          <span class="workspace-status-dot"></span>
+          <span>Данные обновлены</span>
+        </div>
+      </header>
       <section class="panel" id="assetsPanel">
         <div class="section-head">
           <div>
@@ -358,6 +375,6 @@
     </main>
 
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="app.js?v=20260721-71"></script>
+    <script src="app.js?v=20260721-72"></script>
   </body>
 </html>
