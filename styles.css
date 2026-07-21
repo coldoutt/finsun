@@ -2353,6 +2353,8 @@ body {
 }
 
 #dashboardPanel .section-head {
+  position: relative;
+  z-index: 3;
   grid-column: 1;
   margin: 0;
   border-color: rgba(28, 50, 55, 0.08);
@@ -2362,6 +2364,8 @@ body {
 }
 
 #dashboardPanel .chart-layout {
+  position: relative;
+  z-index: 1;
   grid-column: 1;
   border-color: rgba(28, 50, 55, 0.08);
   border-radius: 0 0 24px 24px;
@@ -2438,6 +2442,13 @@ body {
     linear-gradient(90deg, rgba(110, 173, 174, 0.08) 1px, transparent 1px),
     linear-gradient(180deg, rgba(203, 238, 232, 0.62), rgba(247, 251, 250, 0.86));
   background-size: 34px 34px, 34px 34px, auto;
+}
+
+.year-filter {
+  z-index: 30;
+  max-height: min(320px, calc(100vh - 180px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .section-head h2,
