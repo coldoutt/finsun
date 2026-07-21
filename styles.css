@@ -1952,9 +1952,7 @@ tfoot td {
 /* Mint workspace redesign */
 :root {
   --bg: #cceee9;
-  --body-bg:
-    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.74), transparent 28%),
-    linear-gradient(145deg, #c7ebe6 0%, #d9f2ef 54%, #bde4df 100%);
+  --body-bg: #43b98e;
   --shell: #eaf6f7;
   --sidebar: rgba(242, 250, 249, 0.9);
   --surface: #f8fcfc;
