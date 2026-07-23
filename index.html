@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260723-81" />
+    <link rel="stylesheet" href="styles.css?v=20260723-82" />
   </head>
   <body>
     <main class="app-shell">
@@ -117,10 +117,10 @@
                     <input id="profileLastNameInput" type="text" autocomplete="family-name" maxlength="80" />
                   </label>
                 </div>
-                <div class="profile-email">
-                  <span>Почта аккаунта</span>
-                  <strong class="account-status" id="accountStatus"></strong>
-                </div>
+                <label class="profile-email">
+                  Почта аккаунта
+                  <input class="account-status" id="accountStatus" type="email" readonly aria-readonly="true" />
+                </label>
                 <div class="profile-menu-buttons">
                   <button class="primary-button" id="saveProfileBtn" type="button">Сохранить</button>
                   <button class="ghost-button" id="logoutBtn" type="button">Выйти</button>
@@ -380,6 +380,6 @@
 
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260723-78"></script>
+    <script src="app.js?v=20260723-82"></script>
   </body>
 </html>

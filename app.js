@@ -1260,7 +1260,7 @@ function updateAccountStatus() {
   if (isAuthenticated()) {
     const profile = getUserProfile(authState.user);
     const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(" ");
-    els.accountStatus.textContent = authState.user.email;
+    els.accountStatus.value = authState.user.email;
     if (els.profileFirstNameInput) els.profileFirstNameInput.value = profile.firstName;
     if (els.profileLastNameInput) els.profileLastNameInput.value = profile.lastName;
     if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
@@ -1273,7 +1273,7 @@ function updateAccountStatus() {
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = true;
     if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = false;
   } else {
-    els.accountStatus.textContent = "";
+    els.accountStatus.value = "";
     els.accountNote.textContent = "В гостевом режиме активы и история не сохраняются.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = false;
     if (els.accountSession) els.accountSession.hidden = true;
