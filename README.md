@@ -19,8 +19,8 @@
 
 Для корректного возврата после подтверждения email добавьте в Supabase:
 
-- `Authentication -> URL Configuration -> Site URL`: `https://coldoutt.github.io/finance/`
-- `Authentication -> URL Configuration -> Redirect URLs`: `https://coldoutt.github.io/finance/**`
+- `Authentication -> URL Configuration -> Site URL`: `https://coldoutt.github.io/finsun/`
+- `Authentication -> URL Configuration -> Redirect URLs`: `https://coldoutt.github.io/finsun/**`
 
 ## Локальный запуск
 

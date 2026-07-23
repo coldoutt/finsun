@@ -3,7 +3,7 @@ const THEME_KEY = "finance-theme";
 const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BHG2D4weWXsm2LKbH6AIxg_dPBJ0Fnh";
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
-const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finance/main/metrics.json";
+const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finsun/main/metrics.json";
 const OWNER_EMAIL = "tonygazz@gmail.com";
 const OWNER_HISTORY_VERSION = 1;
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -1624,7 +1624,7 @@ function ensureSupabaseClient() {
 }
 
 function getAuthRedirectUrl() {
-  if (window.location.protocol === "file:") return "https://coldoutt.github.io/finance/";
+  if (window.location.protocol === "file:") return "https://coldoutt.github.io/finsun/";
   return `${window.location.origin}${window.location.pathname}`;
 }
 
