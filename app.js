@@ -422,7 +422,8 @@ function loadSelectedMonth(options = {}) {
   } else if (options.preserveDraft) {
     state.currentRows = cloneRows(state.currentRows || []);
   } else {
-    state.currentRows = [];
+    const previous = findPreviousRecord({ year, month });
+    state.currentRows = previous ? cloneRows(previous.rows) : [];
   }
   renderAssets();
 }
