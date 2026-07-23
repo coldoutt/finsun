@@ -531,6 +531,7 @@ function selectTab(name) {
   if (els.pageKicker) els.pageKicker.textContent = copy.kicker;
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.pageSubtitle) els.pageSubtitle.textContent = copy.subtitle;
+  setTodayDateVisible(name === "dashboard");
   toggleProfileMenu(false);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.tab === name);
@@ -543,6 +544,16 @@ function selectTab(name) {
   if (name === "dashboard") {
     drawChart();
   }
+}
+
+function setTodayDateVisible(isVisible) {
+  if (!els.todayDate) return;
+  els.todayDate.hidden = !isVisible;
+  els.todayDate.classList.remove("is-entering");
+  if (!isVisible) return;
+
+  void els.todayDate.offsetWidth;
+  els.todayDate.classList.add("is-entering");
 }
 
 function loadSelectedMonth(options = {}) {

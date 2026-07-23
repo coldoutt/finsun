@@ -2233,6 +2233,10 @@ body {
   white-space: nowrap;
 }
 
+.today-date.is-entering {
+  animation: workspace-rise 0.48s both;
+}
+
 .sidebar-account {
   position: fixed;
   z-index: 50;
@@ -4234,6 +4238,7 @@ body[data-theme="dark"] .profile-menu {
   .metric,
   #dashboardPanel .chart-card,
   #dashboardPanel .asset-structure,
+  .today-date.is-entering,
   .panel.is-visible {
     animation: none;
   }
