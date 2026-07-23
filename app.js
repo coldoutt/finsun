@@ -183,6 +183,7 @@ let authState = {
   user: null,
 };
 let authMode = "login";
+let passwordRecoveryActive = detectPasswordRecoveryRedirect();
 
 const els = {
   totalMetric: document.querySelector("#totalMetric"),
@@ -210,7 +211,10 @@ const els = {
   assetStructureTotal: document.querySelector("#assetStructureTotal"),
   saveNotice: document.querySelector("#saveNotice"),
   authEmailInput: document.querySelector("#authEmailInput"),
+  authEmailField: document.querySelector("#authEmailField"),
   authPasswordInput: document.querySelector("#authPasswordInput"),
+  authPasswordField: document.querySelector("#authPasswordField"),
+  authPasswordLabel: document.querySelector("#authPasswordLabel"),
   authPasswordConfirmInput: document.querySelector("#authPasswordConfirmInput"),
   authPasswordConfirmField: document.querySelector("#authPasswordConfirmField"),
   authFirstNameInput: document.querySelector("#authFirstNameInput"),
@@ -223,6 +227,9 @@ const els = {
   authModeToggleBtn: document.querySelector("#authModeToggleBtn"),
   registerBtn: document.querySelector("#registerBtn"),
   loginBtn: document.querySelector("#loginBtn"),
+  forgotPasswordBtn: document.querySelector("#forgotPasswordBtn"),
+  requestPasswordResetBtn: document.querySelector("#requestPasswordResetBtn"),
+  updatePasswordBtn: document.querySelector("#updatePasswordBtn"),
   logoutBtn: document.querySelector("#logoutBtn"),
   saveProfileBtn: document.querySelector("#saveProfileBtn"),
   profileFirstNameInput: document.querySelector("#profileFirstNameInput"),
@@ -254,6 +261,7 @@ async function init() {
   fillMonthSelect();
   setCurrentMonth();
   bindEvents();
+  bindSupabaseAuthEvents();
   await hydrateSession();
   state = await loadState();
   loadSelectedMonth({ preserveDraft: true });
@@ -286,6 +294,9 @@ function bindEvents() {
   els.saveMonthBtn.addEventListener("click", saveSelectedMonth);
   els.registerBtn?.addEventListener("click", registerAccount);
   els.loginBtn?.addEventListener("click", loginAccount);
+  els.forgotPasswordBtn?.addEventListener("click", () => setAuthMode("recovery"));
+  els.requestPasswordResetBtn?.addEventListener("click", requestPasswordReset);
+  els.updatePasswordBtn?.addEventListener("click", updateRecoveredPassword);
   els.logoutBtn?.addEventListener("click", logoutAccount);
   els.saveProfileBtn?.addEventListener("click", saveProfile);
   els.sidebarLoginBtn?.addEventListener("click", () => toggleProfileMenu());
@@ -308,6 +319,8 @@ function bindEvents() {
       if (event.key !== "Enter") return;
       event.preventDefault();
       if (authMode === "register") registerAccount();
+      else if (authMode === "recovery") requestPasswordReset();
+      else if (authMode === "update-password") updateRecoveredPassword();
       else loginAccount();
     });
   });
@@ -1221,13 +1234,24 @@ async function hydrateSession() {
     ensureSupabaseClient();
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
-    authState.user = data.session?.user ? await loadSupabaseUser(data.session.user) : null;
+    authState.user = !passwordRecoveryActive && data.session?.user
+      ? await loadSupabaseUser(data.session.user)
+      : null;
   } catch (error) {
     console.error("Session restore failed", error);
     authState.user = null;
     showSaveNotice("Сервис аккаунтов временно недоступен", "error");
   }
   updateAccountStatus();
+  if (passwordRecoveryActive) activatePasswordRecovery();
+}
+
+function bindSupabaseAuthEvents() {
+  if (!supabaseClient) return;
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event !== "PASSWORD_RECOVERY") return;
+    window.setTimeout(() => activatePasswordRecovery(), 0);
+  });
 }
 
 function updateAccountStatus() {
@@ -1276,26 +1300,60 @@ function toggleProfileMenu(forceOpen) {
 }
 
 function setAuthMode(mode) {
-  authMode = mode === "register" ? "register" : "login";
+  const allowedModes = new Set(["login", "register", "recovery", "update-password"]);
+  authMode = allowedModes.has(mode) ? mode : "login";
   const isRegister = authMode === "register";
+  const isRecovery = authMode === "recovery";
+  const isPasswordUpdate = authMode === "update-password";
+  const isLogin = authMode === "login";
+
   if (els.authRegisterFields) els.authRegisterFields.hidden = !isRegister;
-  if (els.authPasswordConfirmField) els.authPasswordConfirmField.hidden = !isRegister;
+  if (els.authEmailField) els.authEmailField.hidden = isPasswordUpdate;
+  if (els.authPasswordField) els.authPasswordField.hidden = isRecovery;
+  if (els.authPasswordConfirmField) els.authPasswordConfirmField.hidden = !(isRegister || isPasswordUpdate);
+  if (els.forgotPasswordBtn) els.forgotPasswordBtn.hidden = !isLogin;
   if (els.registerBtn) els.registerBtn.hidden = !isRegister;
-  if (els.loginBtn) els.loginBtn.hidden = isRegister;
-  if (els.authFormTitle) els.authFormTitle.textContent = isRegister ? "Создайте аккаунт" : "С возвращением";
+  if (els.loginBtn) els.loginBtn.hidden = !isLogin;
+  if (els.requestPasswordResetBtn) els.requestPasswordResetBtn.hidden = !isRecovery;
+  if (els.updatePasswordBtn) els.updatePasswordBtn.hidden = !isPasswordUpdate;
+  if (els.authPasswordLabel) els.authPasswordLabel.textContent = isPasswordUpdate ? "Новый пароль" : "Пароль";
+  if (els.authFormTitle) {
+    els.authFormTitle.textContent = isRegister
+      ? "Создайте аккаунт"
+      : isRecovery
+        ? "Восстановление пароля"
+        : isPasswordUpdate
+          ? "Придумайте новый пароль"
+          : "С возвращением";
+  }
   if (els.authFormDescription) {
     els.authFormDescription.textContent = isRegister
       ? "Зарегистрируйтесь, чтобы хранить персональную финансовую историю."
-      : "Войдите, чтобы открыть свои финансовые данные.";
+      : isRecovery
+        ? "Укажите email — мы отправим защищённую ссылку для смены пароля."
+        : isPasswordUpdate
+          ? "Введите новый пароль дважды. Он должен содержать минимум 8 символов."
+          : "Войдите, чтобы открыть свои финансовые данные.";
   }
-  if (els.authModePrompt) els.authModePrompt.textContent = isRegister ? "Уже есть аккаунт?" : "Нет аккаунта?";
-  if (els.authModeToggleBtn) els.authModeToggleBtn.textContent = isRegister ? "Войти" : "Зарегистрироваться";
+  if (els.authModePrompt) {
+    els.authModePrompt.textContent = isRegister
+      ? "Уже есть аккаунт?"
+      : isLogin
+        ? "Нет аккаунта?"
+        : "Вспомнили пароль?";
+  }
+  if (els.authModeToggleBtn) {
+    els.authModeToggleBtn.textContent = isLogin ? "Зарегистрироваться" : "Войти";
+  }
   if (els.authPasswordInput) {
-    els.authPasswordInput.autocomplete = isRegister ? "new-password" : "current-password";
+    els.authPasswordInput.autocomplete = isRegister || isPasswordUpdate ? "new-password" : "current-password";
   }
-  if (!isRegister && els.authPasswordConfirmInput) els.authPasswordConfirmInput.value = "";
+  if (!(isRegister || isPasswordUpdate) && els.authPasswordConfirmInput) {
+    els.authPasswordConfirmInput.value = "";
+  }
   clearAuthMessage();
   if (isRegister) els.authFirstNameInput?.focus();
+  else if (isPasswordUpdate) els.authPasswordInput?.focus();
   else els.authEmailInput?.focus();
 }
 
@@ -1412,8 +1470,9 @@ async function registerAccount() {
     showSaveNotice("Аккаунт создан, вход выполнен");
   } catch (error) {
     console.error("Register failed", error);
-    showAuthMessage(error.message || "Не удалось создать аккаунт");
-    showSaveNotice(error.message || "Не удалось создать аккаунт", "error");
+    const message = getAuthErrorMessage(error, "Не удалось создать аккаунт");
+    showAuthMessage(message);
+    showSaveNotice(message, "error");
   }
 }
 
@@ -1432,9 +1491,98 @@ async function loginAccount() {
     showSaveNotice("Вход выполнен");
   } catch (error) {
     console.error("Login failed", error);
-    showAuthMessage(error.message || "Не удалось выполнить вход");
-    showSaveNotice(error.message || "Не удалось выполнить вход", "error");
+    const message = getAuthErrorMessage(error, "Не удалось выполнить вход");
+    showAuthMessage(message);
+    showSaveNotice(message, "error");
   }
+}
+
+async function requestPasswordReset() {
+  const email = els.authEmailInput?.value.trim() || "";
+  if (!email) {
+    showAuthMessage("Укажите email аккаунта.");
+    els.authEmailInput?.focus();
+    return;
+  }
+
+  try {
+    clearAuthMessage();
+    setAuthButtonBusy(els.requestPasswordResetBtn, true, "Отправляем...");
+    ensureSupabaseClient();
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: getPasswordRecoveryRedirectUrl(),
+    });
+    if (error) throw error;
+    showAuthMessage("Письмо отправлено. Откройте ссылку из письма на этом устройстве.");
+    showSaveNotice("Письмо для восстановления пароля отправлено");
+  } catch (error) {
+    console.error("Password reset request failed", error);
+    const message = getAuthErrorMessage(error, "Не удалось отправить письмо");
+    showAuthMessage(message);
+    showSaveNotice(message, "error");
+  } finally {
+    setAuthButtonBusy(els.requestPasswordResetBtn, false);
+  }
+}
+
+async function updateRecoveredPassword() {
+  const password = els.authPasswordInput?.value || "";
+  const passwordConfirm = els.authPasswordConfirmInput?.value || "";
+  if (password.length < 8) {
+    showAuthMessage("Пароль должен содержать минимум 8 символов.");
+    return;
+  }
+  if (password !== passwordConfirm) {
+    showAuthMessage("Пароли не совпадают.");
+    return;
+  }
+
+  try {
+    clearAuthMessage();
+    setAuthButtonBusy(els.updatePasswordBtn, true, "Сохраняем...");
+    ensureSupabaseClient();
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) throw error;
+
+    const { data, error: userError } = await supabaseClient.auth.getUser();
+    if (userError) throw userError;
+    passwordRecoveryActive = false;
+    authState.user = await loadSupabaseUser(data.user);
+    clearPasswordRecoveryUrl();
+    clearAuthPassword();
+    setAuthMode("login");
+    updateAccountStatus();
+    await reloadStateFromAccount();
+    toggleProfileMenu(false);
+    showSaveNotice("Пароль успешно изменён");
+  } catch (error) {
+    console.error("Password update failed", error);
+    const message = getAuthErrorMessage(error, "Не удалось изменить пароль");
+    showAuthMessage(message);
+    showSaveNotice(message, "error");
+  } finally {
+    setAuthButtonBusy(els.updatePasswordBtn, false);
+  }
+}
+
+function activatePasswordRecovery() {
+  passwordRecoveryActive = true;
+  authState.user = null;
+  updateAccountStatus();
+  setAuthMode("update-password");
+  toggleProfileMenu(true);
+}
+
+function setAuthButtonBusy(button, busy, busyLabel = "") {
+  if (!button) return;
+  if (busy) {
+    button.dataset.defaultLabel = button.textContent;
+    button.textContent = busyLabel || button.textContent;
+  } else if (button.dataset.defaultLabel) {
+    button.textContent = button.dataset.defaultLabel;
+    delete button.dataset.defaultLabel;
+  }
+  button.disabled = busy;
 }
 
 async function logoutAccount() {
@@ -1626,6 +1774,45 @@ function ensureSupabaseClient() {
 function getAuthRedirectUrl() {
   if (window.location.protocol === "file:") return "https://coldoutt.github.io/finsun/";
   return `${window.location.origin}${window.location.pathname}`;
+}
+
+function getPasswordRecoveryRedirectUrl() {
+  const redirectUrl = new URL(getAuthRedirectUrl());
+  redirectUrl.searchParams.set("recovery", "1");
+  return redirectUrl.href;
+}
+
+function detectPasswordRecoveryRedirect() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(window.location.search);
+  return hashParams.get("type") === "recovery" || queryParams.get("recovery") === "1";
+}
+
+function clearPasswordRecoveryUrl() {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("recovery");
+  cleanUrl.hash = "";
+  window.history.replaceState({}, document.title, `${cleanUrl.pathname}${cleanUrl.search}`);
+}
+
+function getAuthErrorMessage(error, fallback) {
+  const message = String(error?.message || "").toLowerCase();
+  if (message.includes("email rate limit exceeded")) {
+    return "Лимит отправки писем исчерпан. Подождите около часа и повторите попытку.";
+  }
+  if (message.includes("invalid login credentials")) {
+    return "Неверный email или пароль.";
+  }
+  if (message.includes("new password should be different")) {
+    return "Новый пароль должен отличаться от предыдущего.";
+  }
+  if (message.includes("password should be at least")) {
+    return "Пароль должен содержать минимум 8 символов.";
+  }
+  if (message.includes("auth session missing") || message.includes("session")) {
+    return "Ссылка восстановления недействительна или истекла. Запросите новое письмо.";
+  }
+  return error?.message || fallback;
 }
 
 function isAuthenticated() {

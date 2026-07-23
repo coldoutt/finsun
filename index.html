@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260721-76" />
+    <link rel="stylesheet" href="styles.css?v=20260723-78" />
   </head>
   <body>
     <main class="app-shell">
@@ -72,17 +72,18 @@
                     <input id="authLastNameInput" type="text" autocomplete="family-name" maxlength="80" placeholder="Гасилин" required />
                   </label>
                 </div>
-                <label>
+                <label id="authEmailField">
                   Email
                   <input id="authEmailInput" type="email" autocomplete="email" placeholder="name@example.com" required />
                 </label>
-                <label>
-                  Пароль
+                <label id="authPasswordField">
+                  <span id="authPasswordLabel">Пароль</span>
                   <span class="password-field">
                     <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="8" placeholder="Минимум 8 символов" required />
                     <button class="password-toggle" type="button" data-password-toggle="authPasswordInput" aria-label="Показать пароль">Показать</button>
                   </span>
                 </label>
+                <button class="auth-forgot-button" id="forgotPasswordBtn" type="button">Забыли пароль?</button>
                 <label id="authPasswordConfirmField" hidden>
                   Повторите пароль
                   <span class="password-field">
@@ -93,6 +94,8 @@
                 <p class="auth-inline-message" id="authInlineMessage" hidden></p>
                 <button class="primary-button auth-submit" id="loginBtn" type="button">Войти</button>
                 <button class="primary-button auth-submit" id="registerBtn" type="button" hidden>Создать аккаунт</button>
+                <button class="primary-button auth-submit" id="requestPasswordResetBtn" type="button" hidden>Отправить письмо</button>
+                <button class="primary-button auth-submit" id="updatePasswordBtn" type="button" hidden>Сохранить новый пароль</button>
                 <div class="auth-mode-switch">
                   <span id="authModePrompt">Нет аккаунта?</span>
                   <button id="authModeToggleBtn" type="button">Зарегистрироваться</button>
@@ -376,6 +379,6 @@
 
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260723-77"></script>
+    <script src="app.js?v=20260723-78"></script>
   </body>
 </html>

@@ -753,6 +753,8 @@ h2 {
 }
 
 .auth-register-fields[hidden],
+#authEmailField[hidden],
+#authPasswordField[hidden],
 #authPasswordConfirmField[hidden],
 .auth-submit[hidden],
 .auth-inline-message[hidden] {
@@ -791,6 +793,25 @@ h2 {
   width: 100%;
   min-height: 40px;
   margin-top: 2px;
+}
+
+.auth-forgot-button {
+  align-self: flex-end;
+  margin-top: -4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-forgot-button:hover {
+  text-decoration: underline;
+}
+
+.auth-forgot-button[hidden] {
+  display: none;
 }
 
 .auth-mode-switch {
