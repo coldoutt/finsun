@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260724-89" />
+    <link rel="stylesheet" href="styles.css?v=20260724-90" />
   </head>
   <body>
     <main class="app-shell">
@@ -170,57 +170,49 @@
         <div class="today-date" id="todayDate">Сегодня 24 июля</div>
       </header>
       <section class="panel" id="assetsPanel">
-        <div class="section-head">
-          <div>
-            <h2>Итоги месяца</h2>
-            <p>Заполните суммы по активам и сохраните снимок месяца.</p>
+        <div class="asset-month-bar">
+          <div class="asset-month-copy">
+            <span class="asset-month-kicker">Месячный снимок</span>
+            <h2>Активы за выбранный месяц</h2>
+            <p>Выберите раздел, обновите значения и сохраните общий снимок портфеля.</p>
+          </div>
+          <div class="asset-month-total">
+            <span>Всего активов</span>
+            <strong id="assetTotalCell">0 ₽</strong>
+          </div>
+          <div class="month-picker asset-month-picker">
+            <label>
+              Год
+              <input id="yearInput" type="number" min="2000" max="2100" />
+            </label>
+            <label>
+              Месяц
+              <select id="monthInput"></select>
+            </label>
+            <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
           </div>
         </div>
 
-        <div class="table-wrap">
-          <datalist id="categorySuggestions"></datalist>
-          <table class="asset-table">
-            <colgroup>
-              <col class="asset-name-col" />
-              <col class="asset-amount-col" />
-              <col class="asset-actions-col" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Категории</th>
-                <th class="amount-column">Активы</th>
-                <th class="actions-column">Действия</th>
-              </tr>
-            </thead>
-            <tbody id="assetRows"></tbody>
-            <tfoot>
-              <tr>
-                <td>Итого</td>
-                <td id="assetTotalCell" class="amount-column">0 ₽</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <div class="asset-group-nav" id="assetGroupNav" aria-label="Разделы активов"></div>
 
-        <div class="asset-control-bubble">
-          <div class="asset-control-section">
-            <button class="secondary-button" id="addRowBtn" type="button">Добавить строку</button>
-          </div>
-          <div class="asset-control-section month-save-section">
-            <div class="month-picker">
-              <label>
-                Год
-                <input id="yearInput" type="number" min="2000" max="2100" />
-              </label>
-              <label>
-                Месяц
-                <select id="monthInput"></select>
-              </label>
-              <button class="primary-button" id="saveMonthBtn" type="button">Сохранить месяц</button>
+        <section class="asset-editor-card" aria-labelledby="assetEditorTitle">
+          <div class="asset-editor-head">
+            <div class="asset-editor-heading">
+              <span class="asset-editor-icon" id="assetEditorIcon" aria-hidden="true">₽</span>
+              <div>
+                <span class="asset-editor-kicker">Раздел активов</span>
+                <h2 id="assetEditorTitle">Банки</h2>
+                <p id="assetEditorDescription">Счета, карты, накопительные счета и вклады.</p>
+              </div>
             </div>
+            <div class="asset-editor-summary">
+              <span>Итого в разделе</span>
+              <strong id="assetGroupTotal">0 ₽</strong>
+            </div>
+            <button class="secondary-button" id="addRowBtn" type="button">Добавить актив</button>
           </div>
-        </div>
+          <div class="asset-entry-list" id="assetRows"></div>
+        </section>
       </section>
 
       <section class="panel" id="budgetPanel" aria-label="Бюджет">
@@ -499,6 +491,6 @@
 
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260724-89"></script>
+    <script src="app.js?v=20260724-90"></script>
   </body>
 </html>

@@ -29,6 +29,83 @@ const months = [
   "Декабрь",
 ];
 
+const ASSET_GROUPS = [
+  {
+    id: "banks",
+    label: "Банки",
+    icon: "₽",
+    description: "Счета, карты, накопительные счета и вклады.",
+    defaultType: "account",
+    types: [
+      ["account", "Банковский счет"],
+      ["card", "Банковская карта"],
+      ["savings", "Накопительный счет"],
+      ["deposit", "Вклад"],
+    ],
+  },
+  {
+    id: "money",
+    label: "Деньги и валюта",
+    icon: "$",
+    description: "Наличные рубли, иностранная валюта и криптовалюта.",
+    defaultType: "cash",
+    types: [
+      ["cash", "Наличные рубли"],
+      ["currency", "Иностранная валюта"],
+      ["crypto", "Криптовалюта"],
+    ],
+  },
+  {
+    id: "investments",
+    label: "Инвестиции",
+    icon: "↗",
+    description: "Брокерские счета, ИИС, ценные бумаги и фонды.",
+    defaultType: "brokerage",
+    types: [
+      ["brokerage", "Брокерский счет"],
+      ["iis", "ИИС"],
+      ["security", "Ценные бумаги"],
+      ["fund", "Фонд"],
+    ],
+  },
+  {
+    id: "property",
+    label: "Недвижимость",
+    icon: "⌂",
+    description: "Жилая и коммерческая недвижимость, земля и другие объекты.",
+    defaultType: "apartment",
+    types: [
+      ["apartment", "Квартира"],
+      ["house", "Дом"],
+      ["commercial", "Коммерческая"],
+      ["land", "Земельный участок"],
+      ["property-other", "Другой объект"],
+    ],
+  },
+  {
+    id: "debts",
+    label: "Долги",
+    icon: "↔",
+    description: "Деньги, которые должны вам или которые должны вы.",
+    defaultType: "receivable",
+    types: [
+      ["receivable", "Мне должны"],
+      ["payable", "Я должен"],
+    ],
+  },
+  {
+    id: "other",
+    label: "Прочее",
+    icon: "+",
+    description: "Активы, которые не относятся к основным разделам.",
+    defaultType: "other",
+    types: [["other", "Другой актив"]],
+  },
+];
+
+const FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
+const CRYPTO_CURRENCIES = ["BTC", "ETH", "USDT", "TON", "SOL", "BNB", "USDC"];
+
 const ownerSeedRows = [
   ["Банк. Карта", "Альфа", 0],
   ["Банк. Карта", "Яндекс", 83660],
@@ -172,6 +249,8 @@ let state = {
 };
 let budgetDraft = null;
 let chartMode = "bar";
+let activeAssetGroup = "banks";
+let latestExternalRates = {};
 let selectedChartYears = new Set();
 let expandedHistoryYears = new Set();
 let collapsedAssetCategories = new Set();
@@ -199,6 +278,11 @@ const els = {
   eurRateMeta: document.querySelector("#eurRateMeta"),
   yearInput: document.querySelector("#yearInput"),
   monthInput: document.querySelector("#monthInput"),
+  assetGroupNav: document.querySelector("#assetGroupNav"),
+  assetEditorIcon: document.querySelector("#assetEditorIcon"),
+  assetEditorTitle: document.querySelector("#assetEditorTitle"),
+  assetEditorDescription: document.querySelector("#assetEditorDescription"),
+  assetGroupTotal: document.querySelector("#assetGroupTotal"),
   budgetYearInput: document.querySelector("#budgetYearInput"),
   budgetMonthInput: document.querySelector("#budgetMonthInput"),
   budgetSourceNote: document.querySelector("#budgetSourceNote"),
@@ -895,113 +979,180 @@ function formatSelectedYears(years) {
 
 function renderAssets() {
   const rows = state.currentRows ?? [];
-  const categoryTotals = getCategoryTotals(rows);
   const total = sumRows(rows);
-  const categorySuggestions = [...new Set(rows.map((row) => row.category))];
-  const groups = getGroupedRows(rows);
+  const totals = getAssetGroupTotals(rows);
+  const activeGroup = getAssetGroup(activeAssetGroup);
+  const activeRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter((item) => item.row.group === activeGroup.id);
 
-  document.querySelector("#categorySuggestions").innerHTML = categorySuggestions
-    .map((category) => `<option value="${escapeHtml(category)}"></option>`)
-    .join("");
-
-  els.assetRows.innerHTML = groups
-    .map((group, groupIndex) => {
-      const isCollapsed = collapsedAssetCategories.has(group.category);
-      const assetRows = group.rows
-        .map(
-          ({ row, index }, itemIndex) => `
-        <tr class="asset-item-row">
-          <td>
-            <input data-field="category" data-index="${index}" type="hidden" value="${escapeHtml(row.category)}" />
-            <input data-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
-          </td>
-          <td class="amount-column">
-            <span class="asset-amount-input">
-              <input data-field="amount" data-index="${index}" inputmode="numeric" value="${formatPlainNumber(row.amount)}" />
-              <span aria-hidden="true">₽</span>
-            </span>
-          </td>
-          <td class="actions-column">
-            <div class="category-actions">
-              <button class="move-category" type="button" data-move-row="${index}" data-row-direction="up" ${itemIndex === 0 ? "disabled" : ""} title="Поднять строку">↑</button>
-              <button class="move-category" type="button" data-move-row="${index}" data-row-direction="down" ${itemIndex === group.rows.length - 1 ? "disabled" : ""} title="Опустить строку">↓</button>
-              <button class="delete-row" type="button" data-delete="${index}" title="Удалить строку">×</button>
-            </div>
-          </td>
-        </tr>
-      `,
-        )
-        .join("");
+  els.assetGroupNav.innerHTML = ASSET_GROUPS
+    .map((group) => {
+      const groupRows = rows.filter((row) => row.group === group.id);
       return `
-        <tr class="asset-category-row">
-          <td>
-            <div class="asset-category-heading">
-              <button class="asset-toggle" type="button" data-toggle-category="${escapeHtml(group.category)}" aria-expanded="${!isCollapsed}" title="${isCollapsed ? "Развернуть категорию" : "Свернуть категорию"}">
-                <span class="asset-chevron" aria-hidden="true"></span>
-              </button>
-              <input data-category-group="${escapeHtml(group.category)}" list="categorySuggestions" value="${escapeHtml(group.category)}" />
-            </div>
-          </td>
-          <td class="amount-column asset-category-total">
-            <span data-category-total="${escapeHtml(group.category)}">${formatMoney(group.total)}</span>
-          </td>
-          <td class="actions-column">
-            <div class="category-actions">
-              <button class="move-category" type="button" data-move-category="${escapeHtml(group.category)}" data-direction="up" ${groupIndex === 0 ? "disabled" : ""} title="Поднять категорию">↑</button>
-              <button class="move-category" type="button" data-move-category="${escapeHtml(group.category)}" data-direction="down" ${groupIndex === groups.length - 1 ? "disabled" : ""} title="Опустить категорию">↓</button>
-              <button class="delete-row" type="button" data-delete-category="${escapeHtml(group.category)}" title="Удалить категорию">×</button>
-            </div>
-          </td>
-        </tr>
-        ${isCollapsed ? "" : assetRows}
+        <button
+          class="asset-group-card ${group.id === activeGroup.id ? "is-active" : ""}"
+          type="button"
+          data-asset-group="${group.id}"
+          aria-pressed="${group.id === activeGroup.id}"
+        >
+          <span class="asset-group-icon" aria-hidden="true">${group.icon}</span>
+          <span class="asset-group-copy">
+            <strong>${group.label}</strong>
+            <small>${formatAssetCount(groupRows.length)}</small>
+          </span>
+          <b data-asset-group-total="${group.id}">${formatMoney(totals[group.id] || 0)}</b>
+        </button>
       `;
     })
     .join("");
 
+  els.assetEditorIcon.textContent = activeGroup.icon;
+  els.assetEditorTitle.textContent = activeGroup.label;
+  els.assetEditorDescription.textContent = activeGroup.description;
+  els.assetGroupTotal.textContent = formatMoney(totals[activeGroup.id] || 0);
   els.assetTotalCell.textContent = formatMoney(total);
 
-  els.assetRows.querySelectorAll("[data-field]").forEach((input) => {
-    input.addEventListener("input", updateRowFromInput);
-    input.addEventListener("change", commitRowInput);
-  });
+  els.assetRows.innerHTML = activeRows.length
+    ? activeRows
+        .map(({ row, index }, position) => renderAssetEntry(row, index, position, activeRows.length))
+        .join("")
+    : `
+      <div class="asset-entry-empty">
+        <span class="asset-entry-empty-icon" aria-hidden="true">${activeGroup.icon}</span>
+        <strong>В разделе пока нет активов</strong>
+        <p>Добавьте первую запись. Она будет сохранена в снимке выбранного месяца.</p>
+      </div>
+    `;
 
-  els.assetRows.querySelectorAll("[data-category-group]").forEach((input) => {
-    input.addEventListener("input", syncCategoryGroup);
-    input.addEventListener("change", updateCategoryGroup);
-  });
-
-  els.assetRows.querySelectorAll("[data-delete]").forEach((button) => {
+  els.assetGroupNav.querySelectorAll("[data-asset-group]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.currentRows.splice(Number(button.dataset.delete), 1);
+      activeAssetGroup = button.dataset.assetGroup;
       renderAssets();
     });
   });
 
-  els.assetRows.querySelectorAll("[data-delete-category]").forEach((button) => {
+  els.assetRows.querySelectorAll('[data-asset-field]:not([data-asset-field="type"])').forEach((input) => {
+    input.addEventListener("input", updateAssetFieldFromInput);
+    input.addEventListener("change", commitAssetField);
+  });
+
+  els.assetRows.querySelectorAll('[data-asset-field="type"]').forEach((select) => {
+    select.addEventListener("change", changeAssetType);
+  });
+
+  els.assetRows.querySelectorAll("[data-asset-delete]").forEach((button) => {
     button.addEventListener("click", () => {
-      collapsedAssetCategories.delete(button.dataset.deleteCategory);
-      state.currentRows = state.currentRows.filter((row) => row.category !== button.dataset.deleteCategory);
+      state.currentRows.splice(Number(button.dataset.assetDelete), 1);
       renderAssets();
     });
   });
 
-  els.assetRows.querySelectorAll("[data-toggle-category]").forEach((button) => {
+  els.assetRows.querySelectorAll("[data-asset-move]").forEach((button) => {
     button.addEventListener("click", () => {
-      toggleAssetCategory(button.dataset.toggleCategory);
+      moveAssetRow(Number(button.dataset.assetMove), button.dataset.direction);
     });
   });
+}
 
-  els.assetRows.querySelectorAll("[data-move-category]").forEach((button) => {
-    button.addEventListener("click", () => {
-      moveCategory(button.dataset.moveCategory, button.dataset.direction);
-    });
-  });
+function renderAssetEntry(row, index, position, groupCount) {
+  const group = getAssetGroup(row.group);
+  return `
+    <article class="asset-entry-card" data-asset-entry="${index}">
+      <div class="asset-entry-card-head">
+        <span class="asset-entry-number">${String(position + 1).padStart(2, "0")}</span>
+        <strong>${escapeHtml(row.name)}</strong>
+        <span class="asset-entry-value" data-asset-row-total="${index}">${formatMoney(row.amount)}</span>
+        <div class="category-actions">
+          <button class="move-category" type="button" data-asset-move="${index}" data-direction="up" ${position === 0 ? "disabled" : ""} title="Поднять актив">↑</button>
+          <button class="move-category" type="button" data-asset-move="${index}" data-direction="down" ${position === groupCount - 1 ? "disabled" : ""} title="Опустить актив">↓</button>
+          <button class="delete-row" type="button" data-asset-delete="${index}" title="Удалить актив">×</button>
+        </div>
+      </div>
+      <div class="asset-entry-fields">
+        <label class="asset-field asset-field-name">
+          Название
+          <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
+        </label>
+        <label class="asset-field">
+          Тип
+          <select data-asset-field="type" data-index="${index}">
+            ${group.types
+              .map(([value, label]) => `<option value="${value}" ${row.type === value ? "selected" : ""}>${label}</option>`)
+              .join("")}
+          </select>
+        </label>
+        ${renderAssetSpecificFields(row, index)}
+      </div>
+    </article>
+  `;
+}
 
-  els.assetRows.querySelectorAll("[data-move-row]").forEach((button) => {
-    button.addEventListener("click", () => {
-      moveAssetRow(Number(button.dataset.moveRow), button.dataset.rowDirection);
-    });
-  });
+function renderAssetSpecificFields(row, index) {
+  if (row.group === "money" && row.type !== "cash") {
+    const currencies = row.type === "crypto" ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
+    const rateLabel = row.type === "crypto" ? "Цена за единицу, ₽" : "Курс к рублю";
+    return `
+      <label class="asset-field">
+        ${row.type === "crypto" ? "Монета" : "Валюта"}
+        <select data-asset-field="currencyCode" data-index="${index}">
+          ${currencies
+            .map((code) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${code}</option>`)
+            .join("")}
+        </select>
+      </label>
+      ${renderAssetNumberField("Количество", "units", row.units, index, "decimal")}
+      ${renderAssetNumberField(rateLabel, "unitRate", row.unitRate, index, "decimal")}
+      <div class="asset-calculated-field">
+        <span>Стоимость в рублях</span>
+        <strong data-asset-calculated="${index}">${formatMoney(row.amount)}</strong>
+      </div>
+    `;
+  }
+
+  const amountField = renderAssetNumberField("Стоимость, ₽", "amount", row.amount, index, "money");
+  if (row.group === "banks") {
+    const depositFields = row.type === "deposit" || row.type === "savings"
+      ? `
+        ${renderAssetNumberField("Ставка, % годовых", "annualRate", row.annualRate, index, "decimal")}
+        ${renderAssetDateField("Дата открытия", "openedAt", row.openedAt, index)}
+        ${renderAssetDateField("Дата окончания", "closesAt", row.closesAt, index)}
+      `
+      : "";
+    return `${amountField}${depositFields}`;
+  }
+  if (row.group === "property") {
+    return `${amountField}${renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index)}`;
+  }
+  if (row.group === "debts") {
+    return `${amountField}${renderAssetDateField("Срок возврата", "dueDate", row.dueDate, index)}`;
+  }
+  return amountField;
+}
+
+function renderAssetNumberField(label, field, value, index, format) {
+  const displayValue = format === "money" ? formatPlainNumber(value) : formatAssetDecimal(value);
+  return `
+    <label class="asset-field">
+      ${label}
+      <input
+        data-asset-field="${field}"
+        data-asset-format="${format}"
+        data-index="${index}"
+        inputmode="decimal"
+        value="${displayValue}"
+      />
+    </label>
+  `;
+}
+
+function renderAssetDateField(label, field, value, index) {
+  return `
+    <label class="asset-field">
+      ${label}
+      <input data-asset-field="${field}" data-index="${index}" type="date" value="${escapeHtml(value || "")}" />
+    </label>
+  `;
 }
 
 function renderHistory() {
@@ -1133,6 +1284,10 @@ async function updateExternalMetrics() {
     const inflation = response.metrics?.inflation;
 
     if (rates?.ok) {
+      latestExternalRates = {
+        USD: Number(rates.usd) || 0,
+        EUR: Number(rates.eur) || 0,
+      };
       const meta = rates.date ? `ЦБ РФ · ${rates.date}` : "ЦБ РФ";
       setExternalMetric(els.usdRateMetric, els.usdRateMeta, formatRate(rates.usd), meta);
       setExternalMetric(els.eurRateMetric, els.eurRateMeta, formatRate(rates.eur), meta);
@@ -1540,88 +1695,103 @@ function getAxisScale(minValue, maxValue) {
   return { min, max, step, steps };
 }
 
-function updateRowFromInput(event) {
-  const index = Number(event.target.dataset.index);
-  const field = event.target.dataset.field;
-  if (!Number.isInteger(index) || !state.currentRows[index]) return;
+function updateAssetFieldFromInput(event) {
+  const input = event.target;
+  const index = Number(input.dataset.index);
+  const field = input.dataset.assetField;
+  const row = state.currentRows[index];
+  if (!row || !field) return;
 
-  const value = field === "amount" ? parseAmount(event.target.value) : event.target.value;
-  state.currentRows[index][field] = value;
+  if (["amount"].includes(field)) row[field] = parseAmount(input.value);
+  else if (["units", "unitRate", "annualRate"].includes(field)) row[field] = parseAssetDecimal(input.value);
+  else row[field] = input.value;
 
-  if (field === "amount") updateDisplayedAssetTotals();
+  if (field === "currencyCode" && row.type === "currency") {
+    const suggestedRate = getSuggestedAssetRate(row.currencyCode);
+    if (suggestedRate > 0) {
+      row.unitRate = suggestedRate;
+      const rateInput = input.closest(".asset-entry-card")?.querySelector('[data-asset-field="unitRate"]');
+      if (rateInput) rateInput.value = formatAssetDecimal(suggestedRate);
+      if (row.units > 0) {
+        row.conversionConfigured = true;
+        recalculateAssetAmount(row);
+      }
+    }
+  }
+
+  if (row.group === "money" && row.type !== "cash" && ["units", "unitRate"].includes(field)) {
+    row.conversionConfigured = true;
+    recalculateAssetAmount(row);
+  }
+
+  if (field === "name") {
+    const title = input.closest(".asset-entry-card")?.querySelector(".asset-entry-card-head > strong");
+    if (title) title.textContent = input.value || "Без названия";
+  }
+  updateDisplayedAssetTotals();
 }
 
-function commitRowInput(event) {
-  updateRowFromInput(event);
-  if (event.target.dataset.field !== "amount") return;
+function commitAssetField(event) {
+  updateAssetFieldFromInput(event);
+  const input = event.target;
+  const index = Number(input.dataset.index);
+  const field = input.dataset.assetField;
+  const row = state.currentRows[index];
+  if (!row) return;
 
+  if (field === "name") {
+    row.name = input.value.trim() || "Без названия";
+    input.value = row.name;
+  } else if (input.dataset.assetFormat === "money") {
+    input.value = formatPlainNumber(row[field]);
+  } else if (input.dataset.assetFormat === "decimal") {
+    input.value = formatAssetDecimal(row[field]);
+  }
+}
+
+function changeAssetType(event) {
   const index = Number(event.target.dataset.index);
-  event.target.value = formatPlainNumber(state.currentRows[index].amount);
+  const row = state.currentRows[index];
+  if (!row) return;
+
+  row.type = event.target.value;
+  if (row.group === "money" && row.type !== "cash") {
+    row.currencyCode ||= row.type === "crypto" ? "BTC" : "USD";
+    row.units = Number(row.units || 0);
+    row.unitRate = Number(row.unitRate || getSuggestedAssetRate(row.currencyCode) || 0);
+  }
+  renderAssets();
 }
 
 function updateDisplayedAssetTotals() {
-  const categoryTotals = getCategoryTotals(state.currentRows);
-  els.assetRows.querySelectorAll("[data-category-total]").forEach((element) => {
-    element.textContent = formatMoney(categoryTotals[element.dataset.categoryTotal] ?? 0);
+  const totals = getAssetGroupTotals(state.currentRows);
+  els.assetGroupNav.querySelectorAll("[data-asset-group-total]").forEach((element) => {
+    element.textContent = formatMoney(totals[element.dataset.assetGroupTotal] || 0);
   });
   els.assetTotalCell.textContent = formatMoney(sumRows(state.currentRows));
-}
-
-function updateCategoryGroup(event) {
-  syncCategoryGroup(event);
-  renderAssets();
-}
-
-function syncCategoryGroup(event) {
-  const previousCategory = event.target.dataset.categoryGroup;
-  const nextCategory = event.target.value.trim() || "Без категории";
-  state.currentRows.forEach((row) => {
-    if (row.category === previousCategory) {
-      row.category = nextCategory;
-    }
+  els.assetGroupTotal.textContent = formatMoney(totals[activeAssetGroup] || 0);
+  els.assetRows.querySelectorAll("[data-asset-row-total]").forEach((element) => {
+    const index = Number(element.dataset.assetRowTotal);
+    element.textContent = formatMoney(state.currentRows[index]?.amount || 0);
   });
-  els.assetRows.querySelectorAll(`.asset-item-row [data-field="category"]`).forEach((input) => {
-    if (input.value === previousCategory) {
-      input.value = nextCategory;
-    }
+  els.assetRows.querySelectorAll("[data-asset-calculated]").forEach((element) => {
+    const index = Number(element.dataset.assetCalculated);
+    element.textContent = formatMoney(state.currentRows[index]?.amount || 0);
   });
-  if (collapsedAssetCategories.has(previousCategory)) {
-    collapsedAssetCategories.delete(previousCategory);
-    collapsedAssetCategories.add(nextCategory);
-  }
-  event.target.dataset.categoryGroup = nextCategory;
-}
-
-function toggleAssetCategory(category) {
-  if (collapsedAssetCategories.has(category)) collapsedAssetCategories.delete(category);
-  else collapsedAssetCategories.add(category);
-  renderAssets();
-}
-
-function moveCategory(category, direction) {
-  const groups = getGroupedRows(state.currentRows);
-  const index = groups.findIndex((group) => group.category === category);
-  if (index === -1) return;
-
-  const nextIndex = direction === "up" ? index - 1 : index + 1;
-  if (nextIndex < 0 || nextIndex >= groups.length) return;
-
-  [groups[index], groups[nextIndex]] = [groups[nextIndex], groups[index]];
-  state.currentRows = groups.flatMap((group) => group.rows.map(({ row }) => row));
-  renderAssets();
 }
 
 function moveAssetRow(index, direction) {
-  const groups = getGroupedRows(state.currentRows);
-  const group = groups.find((item) => item.rows.some((row) => row.index === index));
-  if (!group) return;
+  const row = state.currentRows[index];
+  if (!row) return;
+  const groupIndexes = state.currentRows
+    .map((item, itemIndex) => (item.group === row.group ? itemIndex : -1))
+    .filter((itemIndex) => itemIndex >= 0);
+  const position = groupIndexes.indexOf(index);
+  const nextPosition = direction === "up" ? position - 1 : position + 1;
+  if (nextPosition < 0 || nextPosition >= groupIndexes.length) return;
 
-  const rowIndex = group.rows.findIndex((item) => item.index === index);
-  const nextIndex = direction === "up" ? rowIndex - 1 : rowIndex + 1;
-  if (nextIndex < 0 || nextIndex >= group.rows.length) return;
-
-  [group.rows[rowIndex], group.rows[nextIndex]] = [group.rows[nextIndex], group.rows[rowIndex]];
-  state.currentRows = groups.flatMap((item) => item.rows.map(({ row }) => row));
+  const nextIndex = groupIndexes[nextPosition];
+  [state.currentRows[index], state.currentRows[nextIndex]] = [state.currentRows[nextIndex], state.currentRows[index]];
   renderAssets();
 }
 
@@ -1631,8 +1801,17 @@ function addAssetRow() {
     return;
   }
 
-  state.currentRows.push({ category: "Новая категория", name: "Новый актив", amount: 0 });
+  const group = getAssetGroup(activeAssetGroup);
+  state.currentRows.push(normalizeRowState({
+    id: createAssetId(group.id, state.currentRows.length),
+    group: group.id,
+    category: group.label,
+    type: group.defaultType,
+    name: "Новый актив",
+    amount: 0,
+  }));
   renderAssets();
+  els.assetRows.querySelector(".asset-entry-card:last-child [data-asset-field='name']")?.select();
 }
 
 function hydrateTheme() {
@@ -2329,12 +2508,122 @@ function normalizeRecordState(record) {
   };
 }
 
-function normalizeRowState(row) {
+function normalizeRowState(row, index = 0) {
+  const group = inferAssetGroup(row);
+  const type = inferAssetType(group, row);
+  const conversionConfigured = row?.conversionConfigured === true
+    || (Number(row?.units || 0) !== 0 && Number(row?.unitRate || 0) !== 0);
+  const units = Number.isFinite(Number(row?.units)) ? Number(row.units) : 0;
+  const unitRate = Number.isFinite(Number(row?.unitRate)) ? Number(row.unitRate) : 0;
+  const storedAmount = Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0;
+  const amount = group.id === "money" && type !== "cash" && conversionConfigured
+    ? Math.round(units * unitRate)
+    : storedAmount;
+
   return {
-    category: String(row?.category || "").trim() || "Без категории",
+    id: String(row?.id || createAssetId(group.id, index, `${row?.category || ""}|${row?.name || ""}|${storedAmount}`)),
+    group: group.id,
+    category: group.label,
+    type,
     name: String(row?.name || "").trim() || "Без названия",
-    amount: Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0,
+    amount,
+    currencyCode: inferAssetCurrencyCode(group.id, type, row),
+    units,
+    unitRate,
+    conversionConfigured,
+    annualRate: Number.isFinite(Number(row?.annualRate)) ? Number(row.annualRate) : 0,
+    openedAt: normalizeAssetDate(row?.openedAt),
+    closesAt: normalizeAssetDate(row?.closesAt),
+    valuationDate: normalizeAssetDate(row?.valuationDate),
+    dueDate: normalizeAssetDate(row?.dueDate),
   };
+}
+
+function inferAssetGroup(row) {
+  const stored = ASSET_GROUPS.find((group) => group.id === row?.group);
+  if (stored) return stored;
+
+  const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  if (text.includes("долг")) return getAssetGroup("debts");
+  if (text.includes("банк") || text.includes("вклад") || text.includes("счет") || text.includes("счёт")) {
+    return getAssetGroup("banks");
+  }
+  if (
+    text.includes("налич")
+    || text.includes("валют")
+    || text.includes("крип")
+    || FIAT_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
+    || CRYPTO_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
+  ) {
+    return getAssetGroup("money");
+  }
+  if (text.includes("бирж") || text.includes("инвест") || text.includes("иис") || text.includes("брокер")) {
+    return getAssetGroup("investments");
+  }
+  if (text.includes("недвиж") || text.includes("квартир") || text.includes("дом") || text.includes("земл")) {
+    return getAssetGroup("property");
+  }
+  return getAssetGroup("other");
+}
+
+function inferAssetType(group, row) {
+  if (group.types.some(([value]) => value === row?.type)) return row.type;
+  const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+
+  if (group.id === "banks") {
+    if (text.includes("вклад")) return "deposit";
+    if (text.includes("накоп")) return "savings";
+    if (text.includes("карт")) return "card";
+    return "account";
+  }
+  if (group.id === "money") {
+    if (text.includes("крип") || CRYPTO_CURRENCIES.some((code) => text.includes(code.toLowerCase()))) return "crypto";
+    if (
+      text.includes("доллар")
+      || text.includes("евро")
+      || text.includes("юан")
+      || text.includes("бат")
+      || FIAT_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
+    ) {
+      return "currency";
+    }
+    return "cash";
+  }
+  if (group.id === "investments") {
+    if (text.includes("иис")) return "iis";
+    if (text.includes("акци") || text.includes("облига") || text.includes("бумаг")) return "security";
+    if (text.includes("фонд")) return "fund";
+    return "brokerage";
+  }
+  if (group.id === "property") {
+    if (text.includes("квартир")) return "apartment";
+    if (text.includes("дом")) return "house";
+    if (text.includes("земл")) return "land";
+    if (text.includes("коммер")) return "commercial";
+    return "property-other";
+  }
+  if (group.id === "debts") return text.includes("мой долг") || text.includes("я должен") ? "payable" : "receivable";
+  return group.defaultType;
+}
+
+function inferAssetCurrencyCode(groupId, type, row) {
+  if (groupId !== "money" || type === "cash") return "RUB";
+  const stored = String(row?.currencyCode || "").trim().toUpperCase();
+  const codes = type === "crypto" ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
+  if (codes.includes(stored)) return stored;
+
+  const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  if (text.includes("гонконг")) return "HKD";
+  if (text.includes("доллар")) return "USD";
+  if (text.includes("евро")) return "EUR";
+  if (text.includes("юан")) return "CNY";
+  if (text.includes("бат")) return "THB";
+  return codes.find((code) => text.includes(code.toLowerCase())) || codes[0];
+}
+
+function normalizeAssetDate(value) {
+  const date = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
 }
 
 function normalizeBudgetRecord(budget) {
@@ -2365,35 +2654,23 @@ function isEmptyState(value) {
 }
 
 function readAssetRows() {
-  return Array.from(els.assetRows.querySelectorAll(".asset-item-row")).map((row) => ({
-    category: row.querySelector('[data-field="category"]').value.trim() || "Без категории",
-    name: row.querySelector('[data-field="name"]').value.trim() || "Без названия",
-    amount: parseAmount(row.querySelector('[data-field="amount"]').value),
-  }));
+  return state.currentRows.map(normalizeRowState);
 }
 
 function getCategoryTotals(rows) {
   return rows.reduce((result, row) => {
-    result[row.category] = (result[row.category] ?? 0) + Number(row.amount || 0);
+    const category = getAssetGroup(row.group).label;
+    result[category] = (result[category] ?? 0) + Number(row.amount || 0);
     return result;
   }, {});
 }
 
-function getGroupedRows(rows) {
-  const groups = [];
-  const byCategory = new Map();
-  rows.forEach((row, index) => {
-    const category = row.category || "Без категории";
-    if (!byCategory.has(category)) {
-      const group = { category, total: 0, rows: [] };
-      byCategory.set(category, group);
-      groups.push(group);
-    }
-    const group = byCategory.get(category);
-    group.total += Number(row.amount || 0);
-    group.rows.push({ row, index });
-  });
-  return groups;
+function getAssetGroupTotals(rows) {
+  return rows.reduce((totals, row) => {
+    const groupId = getAssetGroup(row.group).id;
+    totals[groupId] = (totals[groupId] || 0) + Number(row.amount || 0);
+    return totals;
+  }, {});
 }
 
 function getAssetStructure(rows) {
@@ -2465,6 +2742,34 @@ function sumRows(rows) {
   return rows.reduce((total, row) => total + Number(row.amount || 0), 0);
 }
 
+function getAssetGroup(groupId) {
+  return ASSET_GROUPS.find((group) => group.id === groupId) || ASSET_GROUPS.at(-1);
+}
+
+function createAssetId(groupId, index = 0, seed = "") {
+  const value = `${groupId}|${index}|${seed}`;
+  let hash = 0;
+  for (let position = 0; position < value.length; position += 1) {
+    hash = (hash * 31 + value.charCodeAt(position)) >>> 0;
+  }
+  return `asset-${groupId}-${hash.toString(36)}`;
+}
+
+function formatAssetCount(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const ending = mod10 === 1 && mod100 !== 11 ? "актив" : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? "актива" : "активов";
+  return `${count} ${ending}`;
+}
+
+function recalculateAssetAmount(row) {
+  row.amount = Math.round(Number(row.units || 0) * Number(row.unitRate || 0));
+}
+
+function getSuggestedAssetRate(currencyCode) {
+  return Number(latestExternalRates[String(currencyCode || "").toUpperCase()] || 0);
+}
+
 function recordKey(year, month) {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
@@ -2476,6 +2781,14 @@ function cloneRows(rows) {
 function parseAmount(value) {
   const normalized = String(value).replace(/[^\d,-]/g, "").replace(",", ".");
   return Math.round(Number.parseFloat(normalized) || 0);
+}
+
+function parseAssetDecimal(value) {
+  const normalized = String(value)
+    .replace(/\s/g, "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+  return Number.parseFloat(normalized) || 0;
 }
 
 function parseRussianNumber(value) {
@@ -2518,6 +2831,13 @@ function formatMetricChange(delta, base) {
 
 function formatPlainNumber(value) {
   return Math.round(Number(value || 0)).toLocaleString("ru-RU");
+}
+
+function formatAssetDecimal(value) {
+  return Number(value || 0).toLocaleString("ru-RU", {
+    maximumFractionDigits: 8,
+    useGrouping: false,
+  });
 }
 
 function formatPercent(value) {
