@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260724-85" />
+    <link rel="stylesheet" href="styles.css?v=20260724-87" />
   </head>
   <body>
     <main class="app-shell">
@@ -223,7 +223,112 @@
         </div>
       </section>
 
-      <section class="panel" id="budgetPanel" aria-label="Бюджет"></section>
+      <section class="panel" id="budgetPanel" aria-label="Бюджет">
+        <div class="budget-toolbar">
+          <div class="budget-toolbar-copy">
+            <span class="budget-eyebrow">Месячный план</span>
+            <h2>Бюджет месяца</h2>
+            <p id="budgetSourceNote">Добавьте источники доходов и категории расходов.</p>
+          </div>
+          <div class="budget-period-picker">
+            <label>
+              Год
+              <input id="budgetYearInput" type="number" min="2000" max="2100" />
+            </label>
+            <label>
+              Месяц
+              <select id="budgetMonthInput"></select>
+            </label>
+            <button class="primary-button" id="saveBudgetBtn" type="button">Сохранить бюджет</button>
+          </div>
+        </div>
+
+        <div class="budget-summary" aria-label="Итоги бюджета">
+          <article class="budget-summary-card budget-summary-income">
+            <span>Доходы</span>
+            <strong id="budgetIncomeActual">0 ₽</strong>
+            <small>План: <b id="budgetIncomePlan">0 ₽</b></small>
+          </article>
+          <article class="budget-summary-card budget-summary-expense">
+            <span>Расходы</span>
+            <strong id="budgetExpenseActual">0 ₽</strong>
+            <small>План: <b id="budgetExpensePlan">0 ₽</b></small>
+          </article>
+          <article class="budget-summary-card budget-summary-free">
+            <span>Свободный остаток</span>
+            <strong id="budgetFreeActual">0 ₽</strong>
+            <small>По плану: <b id="budgetFreePlan">0 ₽</b></small>
+          </article>
+        </div>
+
+        <div class="budget-tables">
+          <article class="budget-table-card budget-income-card">
+            <div class="budget-table-head">
+              <div>
+                <span class="budget-table-kicker">Поступления</span>
+                <h3>Доходы</h3>
+              </div>
+              <button class="budget-add-button" id="addBudgetIncomeBtn" type="button">+ Добавить доход</button>
+            </div>
+            <div class="budget-table-wrap">
+              <table class="budget-table">
+                <thead>
+                  <tr>
+                    <th>Источник</th>
+                    <th>План</th>
+                    <th>Факт</th>
+                    <th>Разница</th>
+                    <th aria-label="Действия"></th>
+                  </tr>
+                </thead>
+                <tbody id="budgetIncomeRows"></tbody>
+                <tfoot>
+                  <tr>
+                    <td>Итого</td>
+                    <td data-label="План" id="budgetIncomePlanTotal">0 ₽</td>
+                    <td data-label="Факт" id="budgetIncomeActualTotal">0 ₽</td>
+                    <td data-label="Разница" id="budgetIncomeDifferenceTotal">0 ₽</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </article>
+
+          <article class="budget-table-card budget-expense-card">
+            <div class="budget-table-head">
+              <div>
+                <span class="budget-table-kicker">Распределение</span>
+                <h3>Расходы</h3>
+              </div>
+              <button class="budget-add-button" id="addBudgetExpenseBtn" type="button">+ Добавить расход</button>
+            </div>
+            <div class="budget-table-wrap">
+              <table class="budget-table">
+                <thead>
+                  <tr>
+                    <th>Категория</th>
+                    <th>План</th>
+                    <th>Факт</th>
+                    <th>Разница</th>
+                    <th aria-label="Действия"></th>
+                  </tr>
+                </thead>
+                <tbody id="budgetExpenseRows"></tbody>
+                <tfoot>
+                  <tr>
+                    <td>Итого</td>
+                    <td data-label="План" id="budgetExpensePlanTotal">0 ₽</td>
+                    <td data-label="Факт" id="budgetExpenseActualTotal">0 ₽</td>
+                    <td data-label="Разница" id="budgetExpenseDifferenceTotal">0 ₽</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section class="panel" id="historyPanel">
         <div class="section-head">
@@ -392,6 +497,6 @@
 
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260724-86"></script>
+    <script src="app.js?v=20260724-87"></script>
   </body>
 </html>

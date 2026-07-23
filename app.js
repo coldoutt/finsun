@@ -168,7 +168,9 @@ const ownerSeedRecords = [
 let state = {
   records: [],
   currentRows: [],
+  budgets: [],
 };
+let budgetDraft = null;
 let chartMode = "bar";
 let selectedChartYears = new Set();
 let expandedHistoryYears = new Set();
@@ -197,6 +199,23 @@ const els = {
   eurRateMeta: document.querySelector("#eurRateMeta"),
   yearInput: document.querySelector("#yearInput"),
   monthInput: document.querySelector("#monthInput"),
+  budgetYearInput: document.querySelector("#budgetYearInput"),
+  budgetMonthInput: document.querySelector("#budgetMonthInput"),
+  budgetSourceNote: document.querySelector("#budgetSourceNote"),
+  budgetIncomeRows: document.querySelector("#budgetIncomeRows"),
+  budgetExpenseRows: document.querySelector("#budgetExpenseRows"),
+  budgetIncomeActual: document.querySelector("#budgetIncomeActual"),
+  budgetIncomePlan: document.querySelector("#budgetIncomePlan"),
+  budgetExpenseActual: document.querySelector("#budgetExpenseActual"),
+  budgetExpensePlan: document.querySelector("#budgetExpensePlan"),
+  budgetFreeActual: document.querySelector("#budgetFreeActual"),
+  budgetFreePlan: document.querySelector("#budgetFreePlan"),
+  budgetIncomePlanTotal: document.querySelector("#budgetIncomePlanTotal"),
+  budgetIncomeActualTotal: document.querySelector("#budgetIncomeActualTotal"),
+  budgetIncomeDifferenceTotal: document.querySelector("#budgetIncomeDifferenceTotal"),
+  budgetExpensePlanTotal: document.querySelector("#budgetExpensePlanTotal"),
+  budgetExpenseActualTotal: document.querySelector("#budgetExpenseActualTotal"),
+  budgetExpenseDifferenceTotal: document.querySelector("#budgetExpenseDifferenceTotal"),
   assetRows: document.querySelector("#assetRows"),
   assetTotalCell: document.querySelector("#assetTotalCell"),
   historyRows: document.querySelector("#historyRows"),
@@ -253,6 +272,9 @@ const els = {
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
+  addBudgetIncomeBtn: document.querySelector("#addBudgetIncomeBtn"),
+  addBudgetExpenseBtn: document.querySelector("#addBudgetExpenseBtn"),
+  saveBudgetBtn: document.querySelector("#saveBudgetBtn"),
 };
 
 document.addEventListener("DOMContentLoaded", init);
@@ -260,6 +282,7 @@ document.addEventListener("DOMContentLoaded", init);
 async function init() {
   hydrateTheme();
   fillMonthSelect();
+  fillBudgetMonthSelect();
   setCurrentMonth();
   updateTodayDate();
   bindEvents();
@@ -267,6 +290,7 @@ async function init() {
   await hydrateSession();
   state = await loadState();
   loadSelectedMonth({ preserveDraft: true });
+  loadSelectedBudget();
   renderAll();
   updateExternalMetrics();
   window.setInterval(updateExternalMetrics, EXTERNAL_REFRESH_INTERVAL_MS);
@@ -278,10 +302,19 @@ function fillMonthSelect() {
     .join("");
 }
 
+function fillBudgetMonthSelect() {
+  if (!els.budgetMonthInput) return;
+  els.budgetMonthInput.innerHTML = months
+    .map((month, index) => `<option value="${index}">${month}</option>`)
+    .join("");
+}
+
 function setCurrentMonth() {
   const now = new Date();
   els.yearInput.value = now.getFullYear();
   els.monthInput.value = now.getMonth();
+  if (els.budgetYearInput) els.budgetYearInput.value = now.getFullYear();
+  if (els.budgetMonthInput) els.budgetMonthInput.value = now.getMonth();
 }
 
 function updateTodayDate() {
@@ -337,6 +370,9 @@ function bindEvents() {
   });
   els.themeSelect?.addEventListener("change", () => setTheme(els.themeSelect.value));
   els.addRowBtn.addEventListener("click", addAssetRow);
+  els.addBudgetIncomeBtn?.addEventListener("click", () => addBudgetRow("incomes"));
+  els.addBudgetExpenseBtn?.addEventListener("click", () => addBudgetRow("expenses"));
+  els.saveBudgetBtn?.addEventListener("click", saveSelectedBudget);
 
   document.addEventListener("click", (event) => {
     if (!els.profileMenu?.hidden && !event.target.closest(".sidebar-account")) {
@@ -349,6 +385,8 @@ function bindEvents() {
 
   els.yearInput.addEventListener("change", loadSelectedMonth);
   els.monthInput.addEventListener("change", loadSelectedMonth);
+  els.budgetYearInput?.addEventListener("change", loadSelectedBudget);
+  els.budgetMonthInput?.addEventListener("change", loadSelectedBudget);
 
   document.querySelectorAll("[data-chart]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -398,7 +436,7 @@ function selectTab(name) {
     budget: {
       kicker: "Планирование",
       title: "Бюджет",
-      subtitle: "",
+      subtitle: "Планируйте доходы и расходы, сравнивайте их с фактом и контролируйте свободный остаток.",
     },
     history: {
       kicker: "Финансовый архив",
@@ -481,8 +519,316 @@ async function saveSelectedMonth() {
   }
 }
 
+function loadSelectedBudget() {
+  if (!els.budgetYearInput || !els.budgetMonthInput) return;
+  const year = Number(els.budgetYearInput.value);
+  const month = Number(els.budgetMonthInput.value);
+  const existing = state.budgets.find((budget) => budget.key === recordKey(year, month));
+
+  if (existing) {
+    budgetDraft = cloneBudgetRecord(existing);
+    budgetDraft.source = "saved";
+  } else {
+    const previous = findPreviousBudget({ year, month });
+    budgetDraft = previous
+      ? {
+          ...cloneBudgetRecord(previous, { resetActual: true }),
+          key: recordKey(year, month),
+          year,
+          month,
+          savedAt: null,
+          source: "copied",
+          sourcePeriod: recordKey(previous.year, previous.month),
+        }
+      : {
+          key: recordKey(year, month),
+          year,
+          month,
+          incomes: [],
+          expenses: [],
+          savedAt: null,
+          source: "empty",
+        };
+  }
+
+  renderBudget();
+}
+
+function renderBudget() {
+  if (!budgetDraft || !els.budgetIncomeRows || !els.budgetExpenseRows) return;
+  renderBudgetRows("incomes");
+  renderBudgetRows("expenses");
+  updateBudgetSourceNote();
+  updateBudgetCalculations();
+}
+
+function renderBudgetRows(kind) {
+  const container = kind === "incomes" ? els.budgetIncomeRows : els.budgetExpenseRows;
+  const rows = budgetDraft[kind];
+  const nameLabel = kind === "incomes" ? "Источник" : "Категория";
+
+  if (!rows.length) {
+    container.innerHTML = `
+      <tr class="budget-empty-row">
+        <td colspan="5">Пока нет строк. Добавьте ${kind === "incomes" ? "источник дохода" : "категорию расходов"}.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  container.innerHTML = rows
+    .map((row, index) => {
+      const difference = row.actual - row.plan;
+      const tone = getBudgetDifferenceTone(kind, difference);
+      return `
+        <tr>
+          <td data-label="${nameLabel}" class="budget-name-cell">
+            <input
+              class="budget-name-input"
+              data-budget-kind="${kind}"
+              data-budget-index="${index}"
+              data-budget-field="name"
+              value="${escapeHtml(row.name)}"
+              aria-label="${nameLabel}"
+            />
+          </td>
+          <td data-label="План">
+            <span class="budget-amount-input">
+              <input
+                data-budget-kind="${kind}"
+                data-budget-index="${index}"
+                data-budget-field="plan"
+                inputmode="numeric"
+                value="${formatPlainNumber(row.plan)}"
+                aria-label="План"
+              />
+              <span aria-hidden="true">₽</span>
+            </span>
+          </td>
+          <td data-label="Факт">
+            <span class="budget-amount-input">
+              <input
+                data-budget-kind="${kind}"
+                data-budget-index="${index}"
+                data-budget-field="actual"
+                inputmode="numeric"
+                value="${formatPlainNumber(row.actual)}"
+                aria-label="Факт"
+              />
+              <span aria-hidden="true">₽</span>
+            </span>
+          </td>
+          <td data-label="Разница">
+            <strong class="budget-difference ${tone}" data-budget-difference="${kind}-${index}">
+              ${formatSignedMoney(difference)}
+            </strong>
+          </td>
+          <td data-label="Действия" class="budget-actions-cell">
+            <div class="budget-row-actions">
+              <button type="button" data-budget-move="${kind}" data-budget-index="${index}" data-budget-direction="up" ${index === 0 ? "disabled" : ""} title="Поднять строку">↑</button>
+              <button type="button" data-budget-move="${kind}" data-budget-index="${index}" data-budget-direction="down" ${index === rows.length - 1 ? "disabled" : ""} title="Опустить строку">↓</button>
+              <button class="budget-delete-button" type="button" data-budget-delete="${kind}" data-budget-index="${index}" title="Удалить строку">×</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll("[data-budget-field]").forEach((input) => {
+    input.addEventListener("input", updateBudgetRowFromInput);
+    input.addEventListener("change", commitBudgetRowInput);
+  });
+  container.querySelectorAll("[data-budget-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteBudgetRow(button.dataset.budgetDelete, Number(button.dataset.budgetIndex)));
+  });
+  container.querySelectorAll("[data-budget-move]").forEach((button) => {
+    button.addEventListener("click", () => {
+      moveBudgetRow(
+        button.dataset.budgetMove,
+        Number(button.dataset.budgetIndex),
+        button.dataset.budgetDirection,
+      );
+    });
+  });
+}
+
+function updateBudgetRowFromInput(event) {
+  const input = event.target;
+  const kind = input.dataset.budgetKind;
+  const index = Number(input.dataset.budgetIndex);
+  const field = input.dataset.budgetField;
+  const row = budgetDraft?.[kind]?.[index];
+  if (!row) return;
+
+  row[field] = field === "name" ? input.value : parseAmount(input.value);
+  updateBudgetCalculations();
+}
+
+function commitBudgetRowInput(event) {
+  const input = event.target;
+  const kind = input.dataset.budgetKind;
+  const index = Number(input.dataset.budgetIndex);
+  const field = input.dataset.budgetField;
+  const row = budgetDraft?.[kind]?.[index];
+  if (!row) return;
+
+  if (field === "name") {
+    row.name = input.value.trim() || (kind === "incomes" ? "Новый доход" : "Новый расход");
+    input.value = row.name;
+  } else {
+    row[field] = parseAmount(input.value);
+    input.value = formatPlainNumber(row[field]);
+  }
+  updateBudgetCalculations();
+}
+
+function updateBudgetCalculations() {
+  if (!budgetDraft) return;
+  const income = getBudgetTotals(budgetDraft.incomes);
+  const expense = getBudgetTotals(budgetDraft.expenses);
+  const freePlan = income.plan - expense.plan;
+  const freeActual = income.actual - expense.actual;
+
+  els.budgetIncomeActual.textContent = formatMoney(income.actual);
+  els.budgetIncomePlan.textContent = formatMoney(income.plan);
+  els.budgetExpenseActual.textContent = formatMoney(expense.actual);
+  els.budgetExpensePlan.textContent = formatMoney(expense.plan);
+  els.budgetFreeActual.textContent = formatMoney(freeActual);
+  els.budgetFreePlan.textContent = formatMoney(freePlan);
+  els.budgetFreeActual.classList.toggle("is-negative", freeActual < 0);
+  els.budgetFreePlan.classList.toggle("is-negative", freePlan < 0);
+
+  els.budgetIncomePlanTotal.textContent = formatMoney(income.plan);
+  els.budgetIncomeActualTotal.textContent = formatMoney(income.actual);
+  els.budgetIncomeDifferenceTotal.textContent = formatSignedMoney(income.actual - income.plan);
+  els.budgetExpensePlanTotal.textContent = formatMoney(expense.plan);
+  els.budgetExpenseActualTotal.textContent = formatMoney(expense.actual);
+  els.budgetExpenseDifferenceTotal.textContent = formatSignedMoney(expense.actual - expense.plan);
+
+  setBudgetDifferenceTone(els.budgetIncomeDifferenceTotal, "incomes", income.actual - income.plan);
+  setBudgetDifferenceTone(els.budgetExpenseDifferenceTotal, "expenses", expense.actual - expense.plan);
+
+  ["incomes", "expenses"].forEach((kind) => {
+    budgetDraft[kind].forEach((row, index) => {
+      const element = document.querySelector(`[data-budget-difference="${kind}-${index}"]`);
+      if (!element) return;
+      const difference = row.actual - row.plan;
+      element.textContent = formatSignedMoney(difference);
+      setBudgetDifferenceTone(element, kind, difference);
+    });
+  });
+}
+
+function getBudgetTotals(rows) {
+  return rows.reduce(
+    (totals, row) => ({
+      plan: totals.plan + Number(row.plan || 0),
+      actual: totals.actual + Number(row.actual || 0),
+    }),
+    { plan: 0, actual: 0 },
+  );
+}
+
+function getBudgetDifferenceTone(kind, difference) {
+  if (difference === 0) return "is-neutral";
+  const isFavorable = kind === "incomes" ? difference > 0 : difference < 0;
+  return isFavorable ? "is-positive" : "is-negative";
+}
+
+function setBudgetDifferenceTone(element, kind, difference) {
+  if (!element) return;
+  element.classList.remove("is-positive", "is-negative", "is-neutral");
+  element.classList.add(getBudgetDifferenceTone(kind, difference));
+}
+
+function updateBudgetSourceNote() {
+  if (!els.budgetSourceNote || !budgetDraft) return;
+  if (budgetDraft.source === "saved") {
+    els.budgetSourceNote.textContent = "Сохраненный персональный бюджет. Изменения применятся после сохранения.";
+    return;
+  }
+  if (budgetDraft.source === "copied") {
+    const [year, month] = budgetDraft.sourcePeriod.split("-").map(Number);
+    els.budgetSourceNote.textContent = `План скопирован из ${months[month - 1].toLowerCase()} ${year}; фактические суммы обнулены.`;
+    return;
+  }
+  els.budgetSourceNote.textContent = "Добавьте источники доходов и категории расходов.";
+}
+
+function addBudgetRow(kind) {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы планировать бюджет", "error");
+    return;
+  }
+  if (!budgetDraft?.[kind]) return;
+  budgetDraft[kind].push({
+    name: kind === "incomes" ? "Новый доход" : "Новый расход",
+    plan: 0,
+    actual: 0,
+  });
+  budgetDraft.source = budgetDraft.source === "saved" ? "saved" : "draft";
+  renderBudgetRows(kind);
+  updateBudgetCalculations();
+  const newInput = (kind === "incomes" ? els.budgetIncomeRows : els.budgetExpenseRows)
+    .querySelector(`tr:last-child .budget-name-input`);
+  newInput?.select();
+}
+
+function deleteBudgetRow(kind, index) {
+  if (!isAuthenticated() || !budgetDraft?.[kind]?.[index]) return;
+  budgetDraft[kind].splice(index, 1);
+  renderBudgetRows(kind);
+  updateBudgetCalculations();
+}
+
+function moveBudgetRow(kind, index, direction) {
+  if (!isAuthenticated() || !budgetDraft?.[kind]?.[index]) return;
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (nextIndex < 0 || nextIndex >= budgetDraft[kind].length) return;
+  [budgetDraft[kind][index], budgetDraft[kind][nextIndex]] = [
+    budgetDraft[kind][nextIndex],
+    budgetDraft[kind][index],
+  ];
+  renderBudgetRows(kind);
+  updateBudgetCalculations();
+}
+
+async function saveSelectedBudget() {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы сохранить персональный бюджет", "error");
+    return;
+  }
+  if (!budgetDraft) return;
+
+  const nextBudget = normalizeBudgetRecord({
+    ...budgetDraft,
+    savedAt: new Date().toISOString(),
+  });
+  const index = state.budgets.findIndex((budget) => budget.key === nextBudget.key);
+  if (index >= 0) state.budgets[index] = nextBudget;
+  else state.budgets.push(nextBudget);
+
+  try {
+    setAuthButtonBusy(els.saveBudgetBtn, true, "Сохраняем...");
+    const result = await persist();
+    budgetDraft = cloneBudgetRecord(
+      state.budgets.find((budget) => budget.key === nextBudget.key) || nextBudget,
+    );
+    budgetDraft.source = "saved";
+    renderBudget();
+    showSaveNotice(result?.remote ? "Бюджет сохранен в аккаунте" : "Бюджет сохранен в этом браузере");
+  } catch (error) {
+    console.error("Budget save failed", error);
+    showSaveNotice(error.message || "Не удалось сохранить бюджет", "error");
+  } finally {
+    setAuthButtonBusy(els.saveBudgetBtn, false);
+  }
+}
+
 function renderAll() {
   renderAssets();
+  renderBudget();
   renderHistory();
   renderMetrics();
   renderChartFilters();
@@ -1632,6 +1978,7 @@ async function logoutAccount() {
   updateAccountStatus();
   state = buildGuestState();
   loadSelectedMonth({ preserveDraft: true });
+  loadSelectedBudget();
   renderAll();
   showSaveNotice("Вы вышли из аккаунта");
 }
@@ -1667,6 +2014,7 @@ async function persist() {
 async function reloadStateFromAccount() {
   state = await loadStateFromSupabase();
   loadSelectedMonth({ preserveDraft: true });
+  loadSelectedBudget();
   renderAll();
 }
 
@@ -1875,6 +2223,7 @@ async function buildOwnerSeedState() {
     return {
       records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
       currentRows: cloneRows(ownerSeedRows),
+      budgets: [],
       ownerHistoryVersion: OWNER_HISTORY_VERSION,
     };
   }
@@ -1900,10 +2249,18 @@ function normalizeState(value, options = {}) {
   const currentRows = Array.isArray(value?.currentRows) && value.currentRows.length
     ? value.currentRows.map(normalizeRowState)
     : cloneRows(fallbackRows);
+  const budgetMap = new Map();
+  if (Array.isArray(value?.budgets)) {
+    value.budgets
+      .map(normalizeBudgetRecord)
+      .filter(Boolean)
+      .forEach((budget) => budgetMap.set(budget.key, budget));
+  }
 
   return {
     records,
     currentRows: cloneRows(currentRows),
+    budgets: Array.from(budgetMap.values()).sort((a, b) => a.year - b.year || a.month - b.month),
     ownerHistoryVersion: Number(value?.ownerHistoryVersion || 0),
   };
 }
@@ -1932,6 +2289,29 @@ function normalizeRowState(row) {
     category: String(row?.category || "").trim() || "Без категории",
     name: String(row?.name || "").trim() || "Без названия",
     amount: Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0,
+  };
+}
+
+function normalizeBudgetRecord(budget) {
+  const year = Number(budget?.year);
+  const month = Number(budget?.month);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 0 || month > 11) return null;
+
+  return {
+    key: recordKey(year, month),
+    year,
+    month,
+    incomes: Array.isArray(budget?.incomes) ? budget.incomes.map(normalizeBudgetRow) : [],
+    expenses: Array.isArray(budget?.expenses) ? budget.expenses.map(normalizeBudgetRow) : [],
+    savedAt: budget?.savedAt || null,
+  };
+}
+
+function normalizeBudgetRow(row) {
+  return {
+    name: String(row?.name || "").trim() || "Без названия",
+    plan: Number.isFinite(Number(row?.plan)) ? Math.round(Number(row.plan)) : 0,
+    actual: Number.isFinite(Number(row?.actual)) ? Math.round(Number(row.actual)) : 0,
   };
 }
 
@@ -1991,6 +2371,30 @@ function findPreviousRecord(record) {
   return sortedRecords()
     .filter((item) => item.year < record.year || (item.year === record.year && item.month < record.month))
     .at(-1);
+}
+
+function findPreviousBudget(budget) {
+  return [...state.budgets]
+    .sort((a, b) => a.year - b.year || a.month - b.month)
+    .filter((item) => item.year < budget.year || (item.year === budget.year && item.month < budget.month))
+    .at(-1);
+}
+
+function cloneBudgetRecord(budget, options = {}) {
+  return {
+    key: recordKey(budget.year, budget.month),
+    year: budget.year,
+    month: budget.month,
+    incomes: budget.incomes.map((row) => ({
+      ...row,
+      actual: options.resetActual ? 0 : row.actual,
+    })),
+    expenses: budget.expenses.map((row) => ({
+      ...row,
+      actual: options.resetActual ? 0 : row.actual,
+    })),
+    savedAt: budget.savedAt || null,
+  };
 }
 
 function getYearRecords() {
