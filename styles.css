@@ -1041,6 +1041,19 @@ td {
   width: 33.333%;
 }
 
+.history-period-col {
+  width: 34%;
+}
+
+.history-assets-col,
+.history-change-col {
+  width: 29%;
+}
+
+.history-actions-col {
+  width: 72px;
+}
+
 .asset-table th:not(:first-child),
 .asset-table td:not(:first-child),
 .history-table th:not(:first-child),
@@ -1060,6 +1073,44 @@ td {
 .history-table th:last-child,
 .history-table td:last-child {
   border-right: 0;
+}
+
+.history-table th.history-actions-heading,
+.history-table td.history-actions-cell {
+  width: 72px;
+  padding-right: 12px;
+  padding-left: 8px;
+  text-align: center;
+}
+
+.history-delete-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.58;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.history-month-row:hover .history-delete-button,
+.history-delete-button:focus-visible {
+  border-color: rgba(181, 64, 64, 0.18);
+  background: var(--negative-bg);
+  color: var(--negative-text);
+  opacity: 1;
+}
+
+.history-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.35;
 }
 
 .asset-table th.actions-column,

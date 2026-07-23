@@ -1035,6 +1035,7 @@ function renderHistory() {
           </td>
           <td class="amount-column">${formatMoney(yearRecord.total)}</td>
           ${deltaCells(yearDelta.delta, yearDelta.previousTotal)}
+          <td class="history-actions-cell"></td>
         </tr>
       `;
       const monthRows = isExpanded
@@ -1046,6 +1047,15 @@ function renderHistory() {
                 <td><span>${months[record.month]} ${record.year}</span></td>
                 <td class="amount-column">${formatMoney(record.total)}</td>
                 ${deltaCells(delta, previous?.total)}
+                <td class="history-actions-cell">
+                  <button
+                    class="history-delete-button"
+                    type="button"
+                    data-history-delete="${record.key}"
+                    aria-label="Удалить ${months[record.month]} ${record.year}"
+                    title="Удалить месяц"
+                  >×</button>
+                </td>
               </tr>
             `;
           })
@@ -1062,6 +1072,41 @@ function renderHistory() {
       renderHistory();
     });
   });
+
+  els.historyRows.querySelectorAll("[data-history-delete]").forEach((button) => {
+    button.addEventListener("click", () => deleteHistoryRecord(button.dataset.historyDelete, button));
+  });
+}
+
+async function deleteHistoryRecord(key, button) {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы удалять записи истории", "error");
+    return;
+  }
+
+  const record = state.records.find((item) => item.key === key);
+  if (!record) return;
+  const period = `${months[record.month]} ${record.year}`;
+  if (!window.confirm(`Удалить запись за ${period}? Это действие нельзя отменить.`)) return;
+
+  const previousRecords = state.records;
+  state.records = state.records.filter((item) => item.key !== key);
+  button.disabled = true;
+
+  try {
+    await persist();
+    if (!state.records.some((item) => item.year === record.year)) {
+      expandedHistoryYears.delete(record.year);
+      selectedChartYears.delete(record.year);
+    }
+    renderAll();
+    showSaveNotice(`Запись за ${period} удалена`);
+  } catch (error) {
+    console.error("History delete failed", error);
+    state.records = previousRecords;
+    renderAll();
+    showSaveNotice(error.message || "Не удалось удалить запись истории", "error");
+  }
 }
 
 function renderMetrics() {

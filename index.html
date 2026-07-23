@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260724-87" />
+    <link rel="stylesheet" href="styles.css?v=20260724-88" />
   </head>
   <body>
     <main class="app-shell">
@@ -343,12 +343,14 @@
               <col class="history-period-col" />
               <col class="history-assets-col" />
               <col class="history-change-col" />
+              <col class="history-actions-col" />
             </colgroup>
             <thead>
               <tr>
                 <th>Период</th>
                 <th>Активы</th>
                 <th>Изменение</th>
+                <th class="history-actions-heading" aria-label="Действия"></th>
               </tr>
             </thead>
             <tbody id="historyRows"></tbody>
@@ -497,6 +499,6 @@
 
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260724-87"></script>
+    <script src="app.js?v=20260724-88"></script>
   </body>
 </html>
