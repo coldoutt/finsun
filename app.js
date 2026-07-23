@@ -44,16 +44,23 @@ const ASSET_GROUPS = [
     ],
   },
   {
-    id: "money",
-    label: "Валюта",
+    id: "cash",
+    label: "Наличные",
     icon: "$",
-    description: "Наличные рубли, иностранная валюта и криптовалюта.",
+    description: "Наличные рубли, доллары США, евро и гонконгские доллары.",
     defaultType: "cash",
     types: [
       ["cash", "Наличные рубли"],
       ["currency", "Иностранная валюта"],
-      ["crypto", "Криптовалюта"],
     ],
+  },
+  {
+    id: "crypto",
+    label: "Криптовалюта",
+    icon: "₿",
+    description: "Криптовалюты с расчетом стоимости по количеству монет и цене в рублях.",
+    defaultType: "crypto",
+    types: [["crypto", "Криптовалюта"]],
   },
   {
     id: "investments",
@@ -83,27 +90,17 @@ const ASSET_GROUPS = [
     ],
   },
   {
-    id: "debts",
-    label: "Долги",
-    icon: "↔",
-    description: "Деньги, которые должны вам или которые должны вы.",
-    defaultType: "receivable",
-    types: [
-      ["receivable", "Мне должны"],
-      ["payable", "Я должен"],
-    ],
-  },
-  {
     id: "other",
     label: "Прочее",
     icon: "+",
-    description: "Активы, которые не относятся к основным разделам.",
+    description: "Долги и другие активы, которые не относятся к основным разделам.",
     defaultType: "other",
     types: [["other", "Другой актив"]],
   },
 ];
 
-const FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
+const FIAT_CURRENCIES = ["USD", "EUR", "HKD"];
+const LEGACY_FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
 const CRYPTO_CURRENCIES = ["BTC", "ETH", "USDT", "TON", "SOL", "BNB", "USDC"];
 
 const ownerSeedRows = [
@@ -119,14 +116,14 @@ const ownerSeedRows = [
   ["Биржа", "Портфель", 27147],
   ["Биржа", "ИИС", 2488842],
   ["Биржа", "Заблокированное", 50000],
-  ["Криптовалюты", "BTC", 151000],
-  ["Криптовалюты", "TON", 1000],
-  ["Инвестиции/Долги", "Александр", 600000],
+  ["Криптовалюта", "BTC", 151000],
+  ["Криптовалюта", "TON", 1000],
+  ["Прочее", "Александр", 600000],
   ["Наличные", "Рубли", 0],
   ["Наличные", "Доллары", 78000],
   ["Наличные", "Доллары Гонконг", 112],
-  ["Наличные", "Баты", 515],
-  ["Наличные", "Юани", 2500],
+  ["Прочее", "Баты", 515],
+  ["Прочее", "Юани", 2500],
   ["Наличные", "Евро", 190000],
 ].map(([category, name, amount]) => ({ category, name, amount }));
 
@@ -1089,12 +1086,13 @@ function renderAssetEntry(row, index, position, groupCount) {
 }
 
 function renderAssetSpecificFields(row, index) {
-  if (row.group === "money" && row.type !== "cash") {
-    const currencies = row.type === "crypto" ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
-    const rateLabel = row.type === "crypto" ? "Цена за единицу, ₽" : "Курс к рублю";
+  if (isConvertibleAsset(row.group, row.type)) {
+    const isCrypto = row.group === "crypto";
+    const currencies = isCrypto ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
+    const rateLabel = isCrypto ? "Цена за единицу, ₽" : "Курс к рублю";
     return `
       <label class="asset-field">
-        ${row.type === "crypto" ? "Монета" : "Валюта"}
+        ${isCrypto ? "Монета" : "Валюта"}
         <select data-asset-field="currencyCode" data-index="${index}">
           ${currencies
             .map((code) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${code}</option>`)
@@ -1123,9 +1121,6 @@ function renderAssetSpecificFields(row, index) {
   }
   if (row.group === "property") {
     return `${amountField}${renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index)}`;
-  }
-  if (row.group === "debts") {
-    return `${amountField}${renderAssetDateField("Срок возврата", "dueDate", row.dueDate, index)}`;
   }
   return amountField;
 }
@@ -1706,7 +1701,7 @@ function updateAssetFieldFromInput(event) {
   else if (["units", "unitRate", "annualRate"].includes(field)) row[field] = parseAssetDecimal(input.value);
   else row[field] = input.value;
 
-  if (field === "currencyCode" && row.type === "currency") {
+  if (field === "currencyCode" && row.group === "cash" && row.type === "currency") {
     const suggestedRate = getSuggestedAssetRate(row.currencyCode);
     if (suggestedRate > 0) {
       row.unitRate = suggestedRate;
@@ -1719,7 +1714,7 @@ function updateAssetFieldFromInput(event) {
     }
   }
 
-  if (row.group === "money" && row.type !== "cash" && ["units", "unitRate"].includes(field)) {
+  if (isConvertibleAsset(row.group, row.type) && ["units", "unitRate"].includes(field)) {
     row.conversionConfigured = true;
     recalculateAssetAmount(row);
   }
@@ -1755,10 +1750,15 @@ function changeAssetType(event) {
   if (!row) return;
 
   row.type = event.target.value;
-  if (row.group === "money" && row.type !== "cash") {
-    row.currencyCode ||= row.type === "crypto" ? "BTC" : "USD";
+  if (isConvertibleAsset(row.group, row.type)) {
+    row.currencyCode = row.group === "crypto"
+      ? (CRYPTO_CURRENCIES.includes(row.currencyCode) ? row.currencyCode : "BTC")
+      : (FIAT_CURRENCIES.includes(row.currencyCode) ? row.currencyCode : "USD");
     row.units = Number(row.units || 0);
     row.unitRate = Number(row.unitRate || getSuggestedAssetRate(row.currencyCode) || 0);
+  } else if (row.group === "cash") {
+    row.currencyCode = "RUB";
+    row.conversionConfigured = false;
   }
   renderAssets();
 }
@@ -2516,7 +2516,7 @@ function normalizeRowState(row, index = 0) {
   const units = Number.isFinite(Number(row?.units)) ? Number(row.units) : 0;
   const unitRate = Number.isFinite(Number(row?.unitRate)) ? Number(row.unitRate) : 0;
   const storedAmount = Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0;
-  const amount = group.id === "money" && type !== "cash" && conversionConfigured
+  const amount = isConvertibleAsset(group.id, type) && conversionConfigured
     ? Math.round(units * unitRate)
     : storedAmount;
 
@@ -2540,22 +2540,32 @@ function normalizeRowState(row, index = 0) {
 }
 
 function inferAssetGroup(row) {
+  const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  const currencyCode = inferLegacyAssetCurrencyCode(row, text);
+
+  if (row?.group === "money") {
+    if (isCryptoAssetRow(row, text)) return getAssetGroup("crypto");
+    if (currencyCode && !["RUB", ...FIAT_CURRENCIES].includes(currencyCode)) return getAssetGroup("other");
+    return getAssetGroup("cash");
+  }
+  if (row?.group === "debts") return getAssetGroup("other");
+
   const stored = ASSET_GROUPS.find((group) => group.id === row?.group);
   if (stored) return stored;
 
-  const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
-  if (text.includes("долг")) return getAssetGroup("debts");
+  if (isCryptoAssetRow(row, text)) return getAssetGroup("crypto");
+  if (text.includes("долг")) return getAssetGroup("other");
   if (text.includes("банк") || text.includes("вклад") || text.includes("счет") || text.includes("счёт")) {
     return getAssetGroup("banks");
   }
   if (
     text.includes("налич")
     || text.includes("валют")
-    || text.includes("крип")
-    || FIAT_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
-    || CRYPTO_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
+    || currencyCode
   ) {
-    return getAssetGroup("money");
+    return currencyCode && !["RUB", ...FIAT_CURRENCIES].includes(currencyCode)
+      ? getAssetGroup("other")
+      : getAssetGroup("cash");
   }
   if (text.includes("бирж") || text.includes("инвест") || text.includes("иис") || text.includes("брокер")) {
     return getAssetGroup("investments");
@@ -2576,19 +2586,11 @@ function inferAssetType(group, row) {
     if (text.includes("карт")) return "card";
     return "account";
   }
-  if (group.id === "money") {
-    if (text.includes("крип") || CRYPTO_CURRENCIES.some((code) => text.includes(code.toLowerCase()))) return "crypto";
-    if (
-      text.includes("доллар")
-      || text.includes("евро")
-      || text.includes("юан")
-      || text.includes("бат")
-      || FIAT_CURRENCIES.some((code) => text.includes(code.toLowerCase()))
-    ) {
-      return "currency";
-    }
-    return "cash";
+  if (group.id === "cash") {
+    const currencyCode = inferLegacyAssetCurrencyCode(row, text);
+    return currencyCode && currencyCode !== "RUB" ? "currency" : "cash";
   }
+  if (group.id === "crypto") return "crypto";
   if (group.id === "investments") {
     if (text.includes("иис")) return "iis";
     if (text.includes("акци") || text.includes("облига") || text.includes("бумаг")) return "security";
@@ -2602,23 +2604,56 @@ function inferAssetType(group, row) {
     if (text.includes("коммер")) return "commercial";
     return "property-other";
   }
-  if (group.id === "debts") return text.includes("мой долг") || text.includes("я должен") ? "payable" : "receivable";
   return group.defaultType;
 }
 
 function inferAssetCurrencyCode(groupId, type, row) {
-  if (groupId !== "money" || type === "cash") return "RUB";
+  if (groupId === "crypto") {
+    const stored = String(row?.currencyCode || "").trim().toUpperCase();
+    if (CRYPTO_CURRENCIES.includes(stored)) return stored;
+    const name = String(row?.name || "").trim().toUpperCase();
+    return CRYPTO_CURRENCIES.includes(name) ? name : CRYPTO_CURRENCIES[0];
+  }
+  if (groupId !== "cash" || type === "cash") return "RUB";
+
   const stored = String(row?.currencyCode || "").trim().toUpperCase();
-  const codes = type === "crypto" ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
-  if (codes.includes(stored)) return stored;
+  if (FIAT_CURRENCIES.includes(stored)) return stored;
 
   const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
   if (text.includes("гонконг")) return "HKD";
   if (text.includes("доллар")) return "USD";
   if (text.includes("евро")) return "EUR";
-  if (text.includes("юан")) return "CNY";
-  if (text.includes("бат")) return "THB";
-  return codes.find((code) => text.includes(code.toLowerCase())) || codes[0];
+  return FIAT_CURRENCIES.find((code) => text.includes(code.toLowerCase())) || FIAT_CURRENCIES[0];
+}
+
+function inferLegacyAssetCurrencyCode(row, text = "") {
+  const stored = String(row?.currencyCode || "").trim().toUpperCase();
+  if (stored === "RUB" || LEGACY_FIAT_CURRENCIES.includes(stored)) return stored;
+
+  const normalizedText = text || `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  if (normalizedText.includes("гонконг")) return "HKD";
+  if (normalizedText.includes("доллар")) return "USD";
+  if (normalizedText.includes("евро")) return "EUR";
+  if (normalizedText.includes("юан")) return "CNY";
+  if (normalizedText.includes("бат")) return "THB";
+  if (normalizedText.includes("рубл")) return "RUB";
+
+  const name = String(row?.name || "").trim().toUpperCase();
+  return LEGACY_FIAT_CURRENCIES.includes(name) ? name : "";
+}
+
+function isCryptoAssetRow(row, text = "") {
+  if (row?.group === "crypto" || row?.type === "crypto") return true;
+  const stored = String(row?.currencyCode || "").trim().toUpperCase();
+  const name = String(row?.name || "").trim().toUpperCase();
+  const normalizedText = text || `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  return normalizedText.includes("крип")
+    || CRYPTO_CURRENCIES.includes(stored)
+    || CRYPTO_CURRENCIES.includes(name);
+}
+
+function isConvertibleAsset(groupId, type) {
+  return groupId === "crypto" || (groupId === "cash" && type === "currency");
 }
 
 function normalizeAssetDate(value) {

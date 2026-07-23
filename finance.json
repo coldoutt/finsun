@@ -757,17 +757,17 @@
       "amount": 50000
     },
     {
-      "category": "Криптовалюты",
+      "category": "Криптовалюта",
       "name": "BTC",
       "amount": 151000
     },
     {
-      "category": "Криптовалюты",
+      "category": "Криптовалюта",
       "name": "TON",
       "amount": 1000
     },
     {
-      "category": "Инвестиции/Долги",
+      "category": "Прочее",
       "name": "Александр",
       "amount": 600000
     },
@@ -787,12 +787,12 @@
       "amount": 112
     },
     {
-      "category": "Наличные",
+      "category": "Прочее",
       "name": "Баты",
       "amount": 515
     },
     {
-      "category": "Наличные",
+      "category": "Прочее",
       "name": "Юани",
       "amount": 2500
     },
