@@ -45,7 +45,7 @@ const ASSET_GROUPS = [
   },
   {
     id: "money",
-    label: "Деньги и валюта",
+    label: "Валюта",
     icon: "$",
     description: "Наличные рубли, иностранная валюта и криптовалюта.",
     defaultType: "cash",
