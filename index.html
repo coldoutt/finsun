@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260723-82" />
+    <link rel="stylesheet" href="styles.css?v=20260723-83" />
   </head>
   <body>
     <main class="app-shell">
@@ -343,26 +343,28 @@
             <span class="metric-meta" id="eurRateMeta">ЦБ РФ</span>
           </article>
         </section>
-        <div class="section-head">
-          <div>
-            <h2>Динамика активов</h2>
-            <p>График строится по всем сохраненным месяцам.</p>
-          </div>
-          <div class="chart-controls">
-            <button class="segmented is-active" type="button" data-chart="bar">Столбцы</button>
-            <button class="segmented" type="button" data-chart="line">Линия</button>
-            <div class="year-dropdown" id="yearDropdown">
-              <button class="year-dropdown-button" id="yearDropdownBtn" type="button" aria-expanded="false" aria-controls="chartYearFilters">Годы</button>
-              <div class="year-filter" id="chartYearFilters" aria-label="Годы на графике" hidden></div>
+        <section class="chart-card" aria-labelledby="assetDynamicsTitle">
+          <div class="section-head">
+            <div>
+              <h2 id="assetDynamicsTitle">Динамика активов</h2>
+              <p>График строится по всем сохраненным месяцам.</p>
+            </div>
+            <div class="chart-controls">
+              <button class="segmented is-active" type="button" data-chart="bar">Столбцы</button>
+              <button class="segmented" type="button" data-chart="line">Линия</button>
+              <div class="year-dropdown" id="yearDropdown">
+                <button class="year-dropdown-button" id="yearDropdownBtn" type="button" aria-expanded="false" aria-controls="chartYearFilters">Годы</button>
+                <div class="year-filter" id="chartYearFilters" aria-label="Годы на графике" hidden></div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="chart-layout">
-          <div class="chart-shell">
-            <canvas id="totalChart" height="380"></canvas>
-            <div class="chart-tooltip" id="chartTooltip" hidden></div>
+          <div class="chart-layout">
+            <div class="chart-shell">
+              <canvas id="totalChart" height="380"></canvas>
+              <div class="chart-tooltip" id="chartTooltip" hidden></div>
+            </div>
           </div>
-        </div>
+        </section>
         <section class="asset-structure" aria-label="Структура активов">
           <div class="structure-head">
             <div>
