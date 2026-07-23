@@ -1049,7 +1049,7 @@ function renderHistory() {
                 ${deltaCells(delta, previous?.total)}
                 <td class="history-actions-cell">
                   <button
-                    class="history-delete-button"
+                    class="delete-row history-delete-button"
                     type="button"
                     data-history-delete="${record.key}"
                     aria-label="Удалить ${months[record.month]} ${record.year}"
