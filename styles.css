@@ -1540,6 +1540,9 @@ tfoot td {
   padding: 2px 0;
   outline: none;
   cursor: default;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .structure-row:hover,
@@ -1561,6 +1564,9 @@ tfoot td {
   border-radius: 50%;
   background: var(--bar-color);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--bar-color), transparent 82%);
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .structure-row-main strong {
@@ -1578,6 +1584,7 @@ tfoot td {
   font-weight: 850;
   text-align: right;
   white-space: nowrap;
+  transition: color 160ms ease;
 }
 
 .structure-row-main small {
@@ -1593,6 +1600,10 @@ tfoot td {
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
 .structure-track {
@@ -1608,6 +1619,9 @@ tfoot td {
   height: 100%;
   border-radius: inherit;
   background: var(--bar-color);
+  transition:
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 .structure-empty {
@@ -2440,6 +2454,40 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
+.asset-structure .structure-row:hover,
+.asset-structure .structure-row:focus-visible {
+  background: rgba(255, 255, 255, 0.34);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--bar-color), transparent 48%),
+    0 10px 22px rgba(18, 53, 44, 0.12);
+}
+
+.asset-structure .structure-row:hover .structure-dot,
+.asset-structure .structure-row:focus-visible .structure-dot {
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--bar-color), transparent 72%),
+    0 0 14px color-mix(in srgb, var(--bar-color), transparent 28%);
+  transform: scale(1.22);
+}
+
+.asset-structure .structure-row:hover .structure-row-main small,
+.asset-structure .structure-row:focus-visible .structure-row-main small {
+  border-color: color-mix(in srgb, var(--bar-color), transparent 52%);
+  background: color-mix(in srgb, var(--bar-color), white 76%);
+  color: #12352c;
+}
+
+.asset-structure .structure-row:hover .structure-row-main span:last-child,
+.asset-structure .structure-row:focus-visible .structure-row-main span:last-child {
+  color: #12352c;
+}
+
+.asset-structure .structure-row:hover .structure-track span,
+.asset-structure .structure-row:focus-visible .structure-track span {
+  filter: saturate(1.18) brightness(1.05);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--bar-color), transparent 34%);
+}
+
 .asset-structure .structure-row-main small {
   border-color: rgba(18, 53, 44, 0.1);
   background: rgba(255, 255, 255, 0.28);
@@ -2881,5 +2929,13 @@ body[data-theme="dark"] .profile-menu {
   #dashboardPanel .asset-structure,
   .panel.is-visible {
     animation: none;
+  }
+
+  .structure-row,
+  .structure-dot,
+  .structure-row-main span:last-child,
+  .structure-row-main small,
+  .structure-track span {
+    transition: none;
   }
 }
