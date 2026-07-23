@@ -580,7 +580,7 @@ function renderAssets() {
             </div>
           </td>
           <td class="amount-column asset-category-total">
-            <span>${formatMoney(group.total)}</span>
+            <span data-category-total="${escapeHtml(group.category)}">${formatMoney(group.total)}</span>
           </td>
           <td class="actions-column">
             <div class="category-actions">
@@ -598,8 +598,8 @@ function renderAssets() {
   els.assetTotalCell.textContent = formatMoney(total);
 
   els.assetRows.querySelectorAll("[data-field]").forEach((input) => {
-    input.addEventListener("change", updateRowFromInput);
     input.addEventListener("input", updateRowFromInput);
+    input.addEventListener("change", commitRowInput);
   });
 
   els.assetRows.querySelectorAll("[data-category-group]").forEach((input) => {
@@ -1135,13 +1135,28 @@ function getAxisScale(minValue, maxValue) {
 function updateRowFromInput(event) {
   const index = Number(event.target.dataset.index);
   const field = event.target.dataset.field;
+  if (!Number.isInteger(index) || !state.currentRows[index]) return;
+
   const value = field === "amount" ? parseAmount(event.target.value) : event.target.value;
   state.currentRows[index][field] = value;
-  els.assetTotalCell.textContent = formatMoney(sumRows(state.currentRows));
 
-  if (field === "category" || field === "amount") {
-    renderAssets();
-  }
+  if (field === "amount") updateDisplayedAssetTotals();
+}
+
+function commitRowInput(event) {
+  updateRowFromInput(event);
+  if (event.target.dataset.field !== "amount") return;
+
+  const index = Number(event.target.dataset.index);
+  event.target.value = formatPlainNumber(state.currentRows[index].amount);
+}
+
+function updateDisplayedAssetTotals() {
+  const categoryTotals = getCategoryTotals(state.currentRows);
+  els.assetRows.querySelectorAll("[data-category-total]").forEach((element) => {
+    element.textContent = formatMoney(categoryTotals[element.dataset.categoryTotal] ?? 0);
+  });
+  els.assetTotalCell.textContent = formatMoney(sumRows(state.currentRows));
 }
 
 function updateCategoryGroup(event) {
