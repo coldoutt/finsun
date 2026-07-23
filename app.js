@@ -1,10 +1,18 @@
 const AUTH_STORAGE_KEY = "finance-auth-v1";
 const THEME_KEY = "finance-theme";
-const API_BASE = resolveApiBase();
+const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BHG2D4weWXsm2LKbH6AIxg_dPBJ0Fnh";
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finance/main/metrics.json";
 const OWNER_EMAIL = "tonygazz@gmail.com";
 const OWNER_HISTORY_VERSION = 1;
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
 const months = [
   "Январь",
@@ -171,7 +179,7 @@ let chartHoverIndex = null;
 let chartSelectedIndex = null;
 let saveNoticeTimer = null;
 let authState = {
-  provider: "api",
+  provider: "supabase",
   user: null,
 };
 let authMode = "login";
@@ -731,17 +739,10 @@ async function updateExternalMetrics() {
 }
 
 async function loadExternalMetrics() {
-  if (!isStaticDeployment()) {
-    try {
-      return await apiRequest("/metrics");
-    } catch (error) {
-      console.warn("Metrics API is unavailable, using the static snapshot", error);
-    }
-  }
-
-  const staticUrls = isStaticDeployment()
+  const isGitHubPages = window.location.hostname.endsWith("github.io");
+  const staticUrls = isGitHubPages
     ? [STATIC_METRICS_URL, new URL("metrics.json", window.location.href).href]
-    : ["metrics.json"];
+    : ["metrics.json", STATIC_METRICS_URL];
   let lastError = null;
 
   for (const staticUrl of staticUrls) {
@@ -1217,21 +1218,14 @@ function applyTheme(theme) {
 
 async function hydrateSession() {
   try {
-    const response = await apiRequest("/auth/me");
-    authState.provider = "api";
-    authState.user = response.user || null;
+    ensureSupabaseClient();
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+    authState.user = data.session?.user ? await loadSupabaseUser(data.session.user) : null;
   } catch (error) {
-    if (shouldUseBrowserAuthFallback(error)) {
-      authState.provider = "browser";
-      authState.user = getBrowserSessionUser();
-    } else if (error.status !== 401) {
-      console.error("Session restore failed", error);
-      authState.provider = "api";
-      authState.user = null;
-    } else {
-      authState.provider = "api";
-      authState.user = null;
-    }
+    console.error("Session restore failed", error);
+    authState.user = null;
+    showSaveNotice("Сервис аккаунтов временно недоступен", "error");
   }
   updateAccountStatus();
 }
@@ -1249,9 +1243,7 @@ function updateAccountStatus() {
     if (els.sidebarUserEmail) els.sidebarUserEmail.textContent = authState.user.email;
     if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
     if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = displayName;
-    els.accountNote.textContent = authState.provider === "browser"
-      ? "Аккаунт и данные хранятся локально в этом браузере, потому что серверный API на этом хостинге недоступен."
-      : "Изменения будут сохраняться в вашем персональном аккаунте.";
+    els.accountNote.textContent = "Изменения сохраняются в защищённом персональном хранилище Supabase.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = true;
     if (els.accountSession) els.accountSession.hidden = false;
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = true;
@@ -1339,15 +1331,23 @@ async function saveProfile() {
   }
 
   try {
-    if (authState.provider === "browser") {
-      authState.user = updateBrowserProfile(firstName, lastName);
-    } else {
-      const response = await apiRequest("/auth/profile", {
-        method: "PATCH",
-        body: { firstName, lastName },
-      });
-      authState.user = response.user;
-    }
+    ensureSupabaseClient();
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authState.user.id)
+      .select("first_name, last_name")
+      .single();
+    if (error) throw error;
+    authState.user = {
+      ...authState.user,
+      firstName: data.first_name,
+      lastName: data.last_name,
+    };
     updateAccountStatus();
     showSaveNotice("Профиль сохранен");
   } catch (error) {
@@ -1383,19 +1383,32 @@ async function registerAccount() {
     if (credentials.password !== passwordConfirm) {
       throw new Error("Пароли не совпадают.");
     }
-    if (authState.provider === "browser") {
-      authState.user = await registerBrowserAccount(credentials);
-    } else {
-      const response = await apiRequest("/auth/register", {
-        method: "POST",
-        body: credentials,
-      });
-      authState.provider = "api";
-      authState.user = response.user || null;
-    }
+    ensureSupabaseClient();
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: credentials.email,
+      password: credentials.password,
+      options: {
+        data: {
+          first_name: credentials.firstName,
+          last_name: credentials.lastName,
+        },
+        emailRedirectTo: getAuthRedirectUrl(),
+      },
+    });
+    if (error) throw error;
     clearAuthPassword();
+    if (!data.session) {
+      authState.user = null;
+      setAuthMode("login");
+      updateAccountStatus();
+      showAuthMessage("Аккаунт создан. Подтвердите email по ссылке из письма, затем войдите.");
+      showSaveNotice("Проверьте почту для подтверждения регистрации");
+      return;
+    }
+    authState.user = await loadSupabaseUser(data.user);
     updateAccountStatus();
     await reloadStateFromAccount();
+    toggleProfileMenu(false);
     showSaveNotice("Аккаунт создан, вход выполнен");
   } catch (error) {
     console.error("Register failed", error);
@@ -1408,19 +1421,14 @@ async function loginAccount() {
   try {
     clearAuthMessage();
     const credentials = readAuthCredentials();
-    if (authState.provider === "browser") {
-      authState.user = await loginBrowserAccount(credentials);
-    } else {
-      const response = await apiRequest("/auth/login", {
-        method: "POST",
-        body: credentials,
-      });
-      authState.provider = "api";
-      authState.user = response.user || null;
-    }
+    ensureSupabaseClient();
+    const { data, error } = await supabaseClient.auth.signInWithPassword(credentials);
+    if (error) throw error;
+    authState.user = await loadSupabaseUser(data.user);
     clearAuthPassword();
     updateAccountStatus();
     await reloadStateFromAccount();
+    toggleProfileMenu(false);
     showSaveNotice("Вход выполнен");
   } catch (error) {
     console.error("Login failed", error);
@@ -1431,11 +1439,9 @@ async function loginAccount() {
 
 async function logoutAccount() {
   try {
-    if (authState.provider === "browser") {
-      clearBrowserSession();
-    } else {
-      await apiRequest("/auth/logout", { method: "POST" });
-    }
+    ensureSupabaseClient();
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) throw error;
   } catch (error) {
     console.error("Logout failed", error);
   }
@@ -1458,15 +1464,10 @@ function clearAuthPassword() {
 async function loadState() {
   if (isAuthenticated()) {
     try {
-      return authState.provider === "browser" ? loadStateFromBrowserAccount() : await loadStateFromApi();
+      return await loadStateFromSupabase();
     } catch (error) {
-      if (error.status === 401) {
-        authState.user = null;
-        updateAccountStatus();
-        showSaveNotice("Сессия истекла, данные аккаунта недоступны", "error");
-      } else {
-        console.error("API load failed", error);
-      }
+      console.error("Supabase load failed", error);
+      showSaveNotice("Не удалось загрузить данные аккаунта", "error");
     }
   }
 
@@ -1475,12 +1476,7 @@ async function loadState() {
 
 async function persist() {
   if (isAuthenticated()) {
-    if (authState.provider === "browser") {
-      state = saveStateToBrowserAccount(state);
-      return { remote: true };
-    }
-
-    const result = await saveStateToApi(state);
+    const result = await saveStateToSupabase(state);
     state = normalizeState(result.state, { fallbackRecords: [] });
     return { remote: true };
   }
@@ -1489,77 +1485,50 @@ async function persist() {
 }
 
 async function reloadStateFromAccount() {
-  state = authState.provider === "browser"
-    ? await loadStateFromBrowserAccount()
-    : await loadStateFromApi();
+  state = await loadStateFromSupabase();
   loadSelectedMonth({ preserveDraft: true });
   renderAll();
 }
 
-async function loadStateFromApi() {
-  const response = await apiRequest("/finance/state");
-  if (isOwnerAccount() && (response.initialized === false || needsOwnerHistoryMigration(response.state))) {
-    const seeded = await saveStateToApi(await buildOwnerSeedState());
-    return normalizeState(seeded.state, { fallbackRecords: [] });
-  }
-  return normalizeState(response.state, { fallbackRecords: [] });
-}
+async function loadStateFromSupabase() {
+  ensureSupabaseClient();
+  const { data, error } = await supabaseClient
+    .from("finance_states")
+    .select("state")
+    .eq("user_id", authState.user.id)
+    .maybeSingle();
+  if (error) throw error;
 
-async function saveStateToApi(value) {
-  return apiRequest("/finance/state", {
-    method: "PUT",
-    body: {
-      state: value,
-    },
-  });
-}
-
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: options.method || "GET",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-
-  if (response.status === 204) return {};
-
-  const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json") ? await response.json() : null;
-
-  if (!response.ok) {
-    const error = new Error(payload?.message || `API error: ${response.status}`);
-    error.status = response.status;
-    error.payload = payload;
-    throw error;
+  if (!data) {
+    const initialState = await buildInitialAccountState();
+    const saved = await saveStateToSupabase(initialState);
+    return normalizeState(saved.state, { fallbackRecords: [] });
   }
 
-  return payload || {};
+  if (isOwnerAccount() && needsOwnerHistoryMigration(data.state)) {
+    const saved = await saveStateToSupabase(await buildOwnerSeedState());
+    return normalizeState(saved.state, { fallbackRecords: [] });
+  }
+
+  return normalizeState(data.state, { fallbackRecords: [] });
 }
 
-function resolveApiBase() {
-  const host = window.location.hostname;
-  if (window.location.protocol === "file:") {
-    return "http://localhost:3000/api";
-  }
-  if (window.location.port && window.location.port !== "3000") {
-    return `${window.location.protocol}//${host}:3000/api`;
-  }
-  if (host === "127.0.0.1" || host === "localhost") {
-    return `${window.location.protocol}//${host}:3000/api`;
-  }
-  return "/api";
-}
-
-function shouldUseBrowserAuthFallback(error) {
-  return isStaticDeployment() && [404, 405, 502].includes(Number(error?.status));
-}
-
-function isStaticDeployment() {
-  return window.location.protocol.startsWith("http") && window.location.hostname.endsWith("github.io");
+async function saveStateToSupabase(value) {
+  ensureSupabaseClient();
+  const normalized = normalizeState(value, { fallbackRecords: [] });
+  const { data, error } = await supabaseClient
+    .from("finance_states")
+    .upsert({
+      user_id: authState.user.id,
+      state: normalized,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: "user_id",
+    })
+    .select("state")
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 function readBrowserAuthStore() {
@@ -1578,100 +1547,11 @@ function readBrowserAuthStore() {
   }
 }
 
-function writeBrowserAuthStore(store) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(store));
-}
-
-function getBrowserSessionUser() {
+function getLegacyBrowserState(email) {
   const store = readBrowserAuthStore();
-  const user = store.users.find((item) => Number(item.id) === Number(store.currentUserId));
-  return user ? sanitizeBrowserUser(user) : null;
-}
-
-async function registerBrowserAccount(credentials) {
-  const store = readBrowserAuthStore();
-  const email = String(credentials.email || "").trim().toLowerCase();
-  if (store.users.some((item) => item.email === email)) {
-    throw new Error("Пользователь с таким email уже существует.");
-  }
-
-  const user = {
-    id: store.nextUserId,
-    email,
-    firstName: String(credentials.firstName || "").trim(),
-    lastName: String(credentials.lastName || "").trim(),
-    passwordHash: await hashBrowserPassword(credentials.password),
-    createdAt: new Date().toISOString(),
-  };
-  store.nextUserId += 1;
-  store.currentUserId = user.id;
-  store.users.push(user);
-  writeBrowserAuthStore(store);
-  return sanitizeBrowserUser(user);
-}
-
-async function loginBrowserAccount(credentials) {
-  const store = readBrowserAuthStore();
-  const email = String(credentials.email || "").trim().toLowerCase();
-  const user = store.users.find((item) => item.email === email);
-  if (!user) {
-    throw new Error("Неверный email или пароль.");
-  }
-
-  const passwordHash = await hashBrowserPassword(credentials.password);
-  if (user.passwordHash !== passwordHash) {
-    throw new Error("Неверный email или пароль.");
-  }
-
-  store.currentUserId = user.id;
-  writeBrowserAuthStore(store);
-  return sanitizeBrowserUser(user);
-}
-
-function clearBrowserSession() {
-  const store = readBrowserAuthStore();
-  store.currentUserId = null;
-  writeBrowserAuthStore(store);
-}
-
-async function loadStateFromBrowserAccount() {
-  const store = readBrowserAuthStore();
-  const userKey = String(authState.user.id);
-  const storedState = store.financeStates[userKey] || null;
-  if (isOwnerAccount() && needsOwnerHistoryMigration(storedState)) {
-    store.financeStates[userKey] = await buildOwnerSeedState();
-    writeBrowserAuthStore(store);
-  }
-  const rawState = store.financeStates[userKey] || null;
-  return normalizeState(rawState, { fallbackRecords: [] });
-}
-
-function saveStateToBrowserAccount(value) {
-  const store = readBrowserAuthStore();
-  store.financeStates[String(authState.user.id)] = value;
-  writeBrowserAuthStore(store);
-  return normalizeState(value, { fallbackRecords: [] });
-}
-
-function sanitizeBrowserUser(user) {
-  const profile = getUserProfile(user);
-  return {
-    id: Number(user.id),
-    email: user.email,
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    createdAt: user.createdAt,
-  };
-}
-
-function updateBrowserProfile(firstName, lastName) {
-  const store = readBrowserAuthStore();
-  const user = store.users.find((item) => Number(item.id) === Number(authState.user.id));
-  if (!user) throw new Error("Пользователь не найден");
-  user.firstName = firstName;
-  user.lastName = lastName;
-  writeBrowserAuthStore(store);
-  return sanitizeBrowserUser(user);
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const legacyUser = store.users.find((item) => String(item.email || "").toLowerCase() === normalizedEmail);
+  return legacyUser ? store.financeStates[String(legacyUser.id)] || null : null;
 }
 
 function getUserProfile(user) {
@@ -1705,10 +1585,47 @@ function getUserInitials(profile) {
   return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || "П";
 }
 
-async function hashBrowserPassword(password) {
-  const bytes = new TextEncoder().encode(String(password || ""));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (item) => item.toString(16).padStart(2, "0")).join("");
+async function buildInitialAccountState() {
+  const legacyState = getLegacyBrowserState(authState.user.email);
+  if (legacyState && !needsEmptyStateMigration(legacyState)) {
+    return normalizeState(legacyState, { fallbackRecords: [] });
+  }
+  if (isOwnerAccount()) return buildOwnerSeedState();
+  return buildGuestState();
+}
+
+function needsEmptyStateMigration(value) {
+  return !Array.isArray(value?.records) || (!value.records.length && !value.currentRows?.length);
+}
+
+async function loadSupabaseUser(user) {
+  if (!user) return null;
+  ensureSupabaseClient();
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("first_name, last_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) throw error;
+  const metadata = user.user_metadata || {};
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: data?.first_name || metadata.first_name || "",
+    lastName: data?.last_name || metadata.last_name || "",
+    createdAt: user.created_at,
+  };
+}
+
+function ensureSupabaseClient() {
+  if (!supabaseClient) {
+    throw new Error("Не удалось загрузить клиент Supabase. Проверьте подключение к интернету.");
+  }
+}
+
+function getAuthRedirectUrl() {
+  if (window.location.protocol === "file:") return "https://coldoutt.github.io/finance/";
+  return `${window.location.origin}${window.location.pathname}`;
 }
 
 function isAuthenticated() {
