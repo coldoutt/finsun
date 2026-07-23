@@ -384,6 +384,11 @@ function selectTab(name) {
       title: "Активы",
       subtitle: "Обновляйте структуру портфеля и сохраняйте итог каждого месяца.",
     },
+    budget: {
+      kicker: "Планирование",
+      title: "Бюджет",
+      subtitle: "",
+    },
     history: {
       kicker: "Финансовый архив",
       title: "История",
