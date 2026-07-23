@@ -34,11 +34,10 @@ const ASSET_GROUPS = [
     id: "banks",
     label: "Банки",
     icon: "₽",
-    description: "Счета, карты, накопительные счета и вклады.",
+    description: "Банковские и накопительные счета, а также вклады.",
     defaultType: "account",
     types: [
       ["account", "Банковский счет"],
-      ["card", "Банковская карта"],
       ["savings", "Накопительный счет"],
       ["deposit", "Вклад"],
     ],
@@ -66,13 +65,11 @@ const ASSET_GROUPS = [
     id: "investments",
     label: "Инвестиции",
     icon: "↗",
-    description: "Брокерские счета, ИИС, ценные бумаги и фонды.",
+    description: "Брокерские счета и индивидуальные инвестиционные счета.",
     defaultType: "brokerage",
     types: [
       ["brokerage", "Брокерский счет"],
       ["iis", "ИИС"],
-      ["security", "Ценные бумаги"],
-      ["fund", "Фонд"],
     ],
   },
   {
@@ -1071,14 +1068,18 @@ function renderAssetEntry(row, index, position, groupCount) {
           Название
           <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
         </label>
-        <label class="asset-field">
-          Тип
-          <select data-asset-field="type" data-index="${index}">
-            ${group.types
-              .map(([value, label]) => `<option value="${value}" ${row.type === value ? "selected" : ""}>${label}</option>`)
-              .join("")}
-          </select>
-        </label>
+        ${group.types.length > 1
+          ? `
+            <label class="asset-field">
+              Тип
+              <select data-asset-field="type" data-index="${index}">
+                ${group.types
+                  .map(([value, label]) => `<option value="${value}" ${row.type === value ? "selected" : ""}>${label}</option>`)
+                  .join("")}
+              </select>
+            </label>
+          `
+          : ""}
         ${renderAssetSpecificFields(row, index)}
       </div>
     </article>
@@ -2583,7 +2584,6 @@ function inferAssetType(group, row) {
   if (group.id === "banks") {
     if (text.includes("вклад")) return "deposit";
     if (text.includes("накоп")) return "savings";
-    if (text.includes("карт")) return "card";
     return "account";
   }
   if (group.id === "cash") {
@@ -2593,8 +2593,6 @@ function inferAssetType(group, row) {
   if (group.id === "crypto") return "crypto";
   if (group.id === "investments") {
     if (text.includes("иис")) return "iis";
-    if (text.includes("акци") || text.includes("облига") || text.includes("бумаг")) return "security";
-    if (text.includes("фонд")) return "fund";
     return "brokerage";
   }
   if (group.id === "property") {
