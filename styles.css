@@ -2196,6 +2196,17 @@ body {
   font-weight: 500;
 }
 
+.today-date {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: clamp(22px, 2vw, 30px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .sidebar-account {
   position: fixed;
   z-index: 50;
@@ -2873,6 +2884,13 @@ body[data-theme="dark"] .profile-menu {
 
   .workspace-header {
     margin-bottom: 16px;
+  }
+
+  .today-date {
+    max-width: 108px;
+    font-size: 18px;
+    line-height: 1.08;
+    white-space: normal;
   }
 
   .workspace-heading h1 {

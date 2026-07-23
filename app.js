@@ -249,6 +249,7 @@ const els = {
   pageKicker: document.querySelector("#pageKicker"),
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
+  todayDate: document.querySelector("#todayDate"),
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
@@ -260,6 +261,7 @@ async function init() {
   hydrateTheme();
   fillMonthSelect();
   setCurrentMonth();
+  updateTodayDate();
   bindEvents();
   bindSupabaseAuthEvents();
   await hydrateSession();
@@ -280,6 +282,15 @@ function setCurrentMonth() {
   const now = new Date();
   els.yearInput.value = now.getFullYear();
   els.monthInput.value = now.getMonth();
+}
+
+function updateTodayDate() {
+  if (!els.todayDate) return;
+  const date = new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
+  els.todayDate.textContent = `Сегодня ${date}`;
 }
 
 function bindEvents() {
