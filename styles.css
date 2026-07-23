@@ -2197,28 +2197,6 @@ body {
   font-weight: 500;
 }
 
-.workspace-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 9px 13px;
-  background: rgba(255, 255, 255, 0.44);
-  color: var(--muted-strong);
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.workspace-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
-}
-
 .sidebar-account {
   position: fixed;
   z-index: 50;
@@ -2574,7 +2552,6 @@ td {
 .metric:nth-child(5) { animation-delay: 0.16s; }
 .metric:nth-child(6) { animation-delay: 0.2s; }
 
-body[data-theme="dark"] .workspace-status,
 body[data-theme="dark"] .sidebar-login,
 body[data-theme="dark"] .sidebar-user {
   border-color: var(--line);
@@ -2671,10 +2648,6 @@ body[data-theme="dark"] .profile-menu {
   }
 
   .brand-wordmark {
-    display: none;
-  }
-
-  .workspace-status {
     display: none;
   }
 
