@@ -2743,6 +2743,23 @@ td {
   color: #1d2d30;
 }
 
+.year-select {
+  appearance: none;
+  min-width: 112px;
+  padding-right: 36px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 14px !important;
+  cursor: pointer;
+}
+
+.year-select:focus {
+  border-color: rgba(100, 213, 178, 0.8);
+  box-shadow: 0 0 0 3px rgba(100, 213, 178, 0.16);
+  outline: 0;
+}
+
 .asset-month-picker .primary-button {
   min-height: 40px;
   border-color: #64d5b2;
@@ -2968,7 +2985,7 @@ td {
   min-width: 0;
 }
 
-.asset-entry-main-fields.has-type {
+.asset-entry-main-fields.is-three-fields {
   grid-template-columns: minmax(180px, 1.35fr) minmax(160px, 1fr) minmax(160px, 0.8fr);
 }
 
@@ -2983,6 +3000,14 @@ td {
   margin: 10px 94px 0 38px;
   border-top: 1px dashed var(--line);
   padding-top: 10px;
+}
+
+.asset-entry-details.is-two-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-entry-details.is-one-field {
+  grid-template-columns: minmax(180px, 320px);
 }
 
 .asset-field {
@@ -4045,13 +4070,15 @@ body[data-theme="dark"] .profile-menu {
   }
 
   .asset-entry-main-fields,
-  .asset-entry-main-fields.has-type {
+  .asset-entry-main-fields.is-three-fields {
     grid-column: 1 / -1;
     grid-row: 2;
     grid-template-columns: 1fr;
   }
 
-  .asset-entry-details {
+  .asset-entry-details,
+  .asset-entry-details.is-two-fields,
+  .asset-entry-details.is-one-field {
     grid-template-columns: 1fr;
     margin: 10px 0 0;
   }

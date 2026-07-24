@@ -56,7 +56,7 @@ const ASSET_GROUPS = [
     description: "Наличные рубли, доллары США, евро и гонконгские доллары.",
     defaultType: "cash",
     types: [
-      ["cash", "Наличные рубли"],
+      ["cash", "Рубль"],
       ["currency", "Иностранная валюта"],
     ],
   },
@@ -119,9 +119,25 @@ const ASSET_GROUPS = [
   },
 ];
 
-const FIAT_CURRENCIES = ["USD", "EUR", "HKD"];
+const FIAT_CURRENCY_OPTIONS = [
+  { code: "USD", label: "USD — доллар" },
+  { code: "EUR", label: "EUR — евро" },
+  { code: "HKD", label: "HKD — гонконгский доллар" },
+];
+const CRYPTO_CURRENCY_OPTIONS = [
+  { code: "BTC", label: "BTC — биткоин" },
+  { code: "ETH", label: "ETH — эфириум" },
+  { code: "USDT", label: "USDT — Tether" },
+  { code: "TON", label: "TON — тонкоин" },
+  { code: "SOL", label: "SOL — Solana" },
+  { code: "BNB", label: "BNB — Binance Coin" },
+  { code: "USDC", label: "USDC — USD Coin" },
+];
+const FIAT_CURRENCIES = FIAT_CURRENCY_OPTIONS.map(({ code }) => code);
 const LEGACY_FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
-const CRYPTO_CURRENCIES = ["BTC", "ETH", "USDT", "TON", "SOL", "BNB", "USDC"];
+const CRYPTO_CURRENCIES = CRYPTO_CURRENCY_OPTIONS.map(({ code }) => code);
+const YEAR_SELECT_START = 2018;
+const YEAR_SELECT_FUTURE_OFFSET = 5;
 
 let state = {
   records: [],
@@ -248,6 +264,7 @@ async function init() {
   hydrateTheme();
   fillMonthSelect();
   fillBudgetMonthSelect();
+  fillYearSelects();
   setCurrentMonth();
   updateTodayDate();
   bindEvents();
@@ -255,6 +272,7 @@ async function init() {
   bindSupabaseAuthEvents();
   await hydrateSession();
   state = await loadState();
+  fillYearSelects({ preserveSelection: true });
   loadSelectedMonth({ preserveDraft: true });
   loadSelectedBudget();
   renderAll();
@@ -273,6 +291,27 @@ function fillBudgetMonthSelect() {
   els.budgetMonthInput.innerHTML = months
     .map((month, index) => `<option value="${index}">${month}</option>`)
     .join("");
+}
+
+function fillYearSelects({ preserveSelection = false } = {}) {
+  const currentYear = new Date().getFullYear();
+  const storedYears = [...state.records, ...state.budgets]
+    .map(({ year }) => Number(year))
+    .filter(Number.isInteger);
+  const firstYear = Math.min(YEAR_SELECT_START, ...storedYears);
+  const lastYear = Math.max(currentYear + YEAR_SELECT_FUTURE_OFFSET, ...storedYears);
+  const options = [];
+
+  for (let year = lastYear; year >= firstYear; year -= 1) {
+    options.push(`<option value="${year}">${year}</option>`);
+  }
+
+  [els.yearInput, els.budgetYearInput].forEach((select) => {
+    if (!select) return;
+    const previousYear = preserveSelection ? Number(select.value) : currentYear;
+    select.innerHTML = options.join("");
+    select.value = String(previousYear >= firstYear && previousYear <= lastYear ? previousYear : currentYear);
+  });
 }
 
 function setCurrentMonth() {
@@ -966,16 +1005,24 @@ function renderAssets() {
 function renderAssetEntry(row, index, position, groupCount) {
   const group = getAssetGroup(row.group);
   const hasType = group.types.length > 1;
+  const hasAutomaticName = usesAutomaticAssetName(row.group, row.type);
+  const hasCodeSelector = row.group === "crypto" || (row.group === "cash" && row.type === "currency");
+  const primaryFieldCount = Number(!hasAutomaticName) + Number(hasType) + Number(hasCodeSelector) + 1;
   const details = renderAssetSpecificFields(row, index);
+  const detailsLayout = isConvertibleAsset(row.group, row.type) ? "is-two-fields" : "is-one-field";
   return `
     <article class="asset-entry-card" data-asset-entry="${index}">
       <div class="asset-entry-main">
         <span class="asset-entry-number">${String(position + 1).padStart(2, "0")}</span>
-        <div class="asset-entry-main-fields ${hasType ? "has-type" : ""}">
-          <label class="asset-field asset-field-name">
-            Название
-            <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
-          </label>
+        <div class="asset-entry-main-fields ${primaryFieldCount >= 3 ? "is-three-fields" : ""}">
+          ${!hasAutomaticName
+            ? `
+              <label class="asset-field asset-field-name">
+                Название
+                <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
+              </label>
+            `
+            : ""}
           ${hasType
             ? `
               <label class="asset-field asset-field-type">
@@ -988,6 +1035,7 @@ function renderAssetEntry(row, index, position, groupCount) {
               </label>
             `
             : ""}
+          ${hasCodeSelector ? renderAssetCodeField(row, index) : ""}
           ${renderAssetPrimaryValue(row, index)}
         </div>
         <div class="category-actions">
@@ -996,7 +1044,7 @@ function renderAssetEntry(row, index, position, groupCount) {
           <button class="delete-row" type="button" data-asset-delete="${index}" aria-label="Удалить актив" title="Удалить актив">×</button>
         </div>
       </div>
-      ${details ? `<div class="asset-entry-details">${details}</div>` : ""}
+      ${details ? `<div class="asset-entry-details ${detailsLayout}">${details}</div>` : ""}
     </article>
   `;
 }
@@ -1019,35 +1067,32 @@ function renderAssetPrimaryValue(row, index) {
 function renderAssetSpecificFields(row, index) {
   if (isConvertibleAsset(row.group, row.type)) {
     const isCrypto = row.group === "crypto";
-    const currencies = isCrypto ? CRYPTO_CURRENCIES : FIAT_CURRENCIES;
     const rateLabel = isCrypto ? "Цена за единицу, ₽" : "Курс к рублю";
     return `
-      <label class="asset-field">
-        ${isCrypto ? "Монета" : "Валюта"}
-        <select data-asset-field="currencyCode" data-index="${index}">
-          ${currencies
-            .map((code) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${code}</option>`)
-            .join("")}
-        </select>
-      </label>
       ${renderAssetNumberField("Количество", "units", row.units, index, "decimal")}
       ${renderAssetNumberField(rateLabel, "unitRate", row.unitRate, index, "decimal")}
     `;
   }
 
-  if (row.group === "banks") {
-    return row.type === "deposit" || row.type === "savings"
-      ? `
-        ${renderAssetNumberField("Ставка, % годовых", "annualRate", row.annualRate, index, "decimal")}
-        ${renderAssetDateField("Дата открытия", "openedAt", row.openedAt, index)}
-        ${renderAssetDateField("Дата окончания", "closesAt", row.closesAt, index)}
-      `
-      : "";
-  }
   if (row.group === "property") {
     return renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index);
   }
   return "";
+}
+
+function renderAssetCodeField(row, index) {
+  const isCrypto = row.group === "crypto";
+  const options = isCrypto ? CRYPTO_CURRENCY_OPTIONS : FIAT_CURRENCY_OPTIONS;
+  return `
+    <label class="asset-field asset-field-code">
+      ${isCrypto ? "Монета" : "Валюта"}
+      <select data-asset-field="currencyCode" data-index="${index}">
+        ${options
+          .map(({ code, label }) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${label}</option>`)
+          .join("")}
+      </select>
+    </label>
+  `;
 }
 
 function renderAssetNumberField(label, field, value, index, format, className = "") {
@@ -1635,15 +1680,18 @@ function updateAssetFieldFromInput(event) {
   else if (["units", "unitRate", "annualRate"].includes(field)) row[field] = parseAssetDecimal(input.value);
   else row[field] = input.value;
 
-  if (field === "currencyCode" && row.group === "cash" && row.type === "currency") {
-    const suggestedRate = getSuggestedAssetRate(row.currencyCode);
-    if (suggestedRate > 0) {
-      row.unitRate = suggestedRate;
-      const rateInput = input.closest(".asset-entry-card")?.querySelector('[data-asset-field="unitRate"]');
-      if (rateInput) rateInput.value = formatAssetDecimal(suggestedRate);
-      if (row.units > 0) {
-        row.conversionConfigured = true;
-        recalculateAssetAmount(row);
+  if (field === "currencyCode") {
+    row.name = getAutomaticAssetName(row.group, row.type, row.currencyCode) || row.name;
+    if (row.group === "cash" && row.type === "currency") {
+      const suggestedRate = getSuggestedAssetRate(row.currencyCode);
+      if (suggestedRate > 0) {
+        row.unitRate = suggestedRate;
+        const rateInput = input.closest(".asset-entry-card")?.querySelector('[data-asset-field="unitRate"]');
+        if (rateInput) rateInput.value = formatAssetDecimal(suggestedRate);
+        if (row.units > 0) {
+          row.conversionConfigured = true;
+          recalculateAssetAmount(row);
+        }
       }
     }
   }
@@ -1686,8 +1734,10 @@ function changeAssetType(event) {
       : (FIAT_CURRENCIES.includes(row.currencyCode) ? row.currencyCode : "USD");
     row.units = Number(row.units || 0);
     row.unitRate = Number(row.unitRate || getSuggestedAssetRate(row.currencyCode) || 0);
+    row.name = getAutomaticAssetName(row.group, row.type, row.currencyCode);
   } else if (row.group === "cash") {
     row.currencyCode = "RUB";
+    row.name = "Рубль";
     row.conversionConfigured = false;
   }
   renderAssets();
@@ -1737,7 +1787,9 @@ function addAssetRow() {
     amount: 0,
   }));
   renderAssets();
-  els.assetRows.querySelector(".asset-entry-card:last-child [data-asset-field='name']")?.select();
+  els.assetRows.querySelector(
+    ".asset-entry-card:last-child [data-asset-field='name'], .asset-entry-card:last-child [data-asset-field='currencyCode']",
+  )?.focus();
 }
 
 function hydrateTheme() {
@@ -2454,15 +2506,17 @@ function normalizeRowState(row, index = 0) {
   const amount = isConvertibleAsset(group.id, type) && conversionConfigured
     ? Math.round(units * unitRate)
     : storedAmount;
+  const currencyCode = inferAssetCurrencyCode(group.id, type, row);
+  const automaticName = getAutomaticAssetName(group.id, type, currencyCode);
 
   return {
     id: String(row?.id || createAssetId(group.id, index, `${row?.category || ""}|${row?.name || ""}|${storedAmount}`)),
     group: group.id,
     category: group.label,
     type,
-    name: String(row?.name || "").trim() || "Без названия",
+    name: automaticName || String(row?.name || "").trim() || "Без названия",
     amount,
-    currencyCode: inferAssetCurrencyCode(group.id, type, row),
+    currencyCode,
     units,
     unitRate,
     conversionConfigured,
@@ -2544,7 +2598,7 @@ function inferAssetCurrencyCode(groupId, type, row) {
     const stored = String(row?.currencyCode || "").trim().toUpperCase();
     if (CRYPTO_CURRENCIES.includes(stored)) return stored;
     const name = String(row?.name || "").trim().toUpperCase();
-    return CRYPTO_CURRENCIES.includes(name) ? name : CRYPTO_CURRENCIES[0];
+    return CRYPTO_CURRENCIES.find((code) => name.includes(code)) || CRYPTO_CURRENCIES[0];
   }
   if (groupId !== "cash" || type === "cash") return "RUB";
 
@@ -2556,6 +2610,20 @@ function inferAssetCurrencyCode(groupId, type, row) {
   if (text.includes("доллар")) return "USD";
   if (text.includes("евро")) return "EUR";
   return FIAT_CURRENCIES.find((code) => text.includes(code.toLowerCase())) || FIAT_CURRENCIES[0];
+}
+
+function usesAutomaticAssetName(groupId, type) {
+  return groupId === "crypto" || groupId === "cash";
+}
+
+function getAutomaticAssetName(groupId, type, currencyCode) {
+  if (groupId === "cash" && type === "cash") return "Рубль";
+  const options = groupId === "crypto"
+    ? CRYPTO_CURRENCY_OPTIONS
+    : groupId === "cash" && type === "currency"
+      ? FIAT_CURRENCY_OPTIONS
+      : [];
+  return options.find(({ code }) => code === currencyCode)?.label || "";
 }
 
 function inferLegacyAssetCurrencyCode(row, text = "") {
@@ -2581,7 +2649,7 @@ function isCryptoAssetRow(row, text = "") {
   const normalizedText = text || `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
   return normalizedText.includes("крип")
     || CRYPTO_CURRENCIES.includes(stored)
-    || CRYPTO_CURRENCIES.includes(name);
+    || CRYPTO_CURRENCIES.some((code) => name.includes(code));
 }
 
 function isConvertibleAsset(groupId, type) {

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260724-95" />
+    <link rel="stylesheet" href="styles.css?v=20260724-96" />
   </head>
   <body>
     <main class="app-shell">
@@ -183,7 +183,7 @@
           <div class="month-picker asset-month-picker">
             <label>
               Год
-              <input id="yearInput" type="number" min="2000" max="2100" />
+              <select class="year-select" id="yearInput" aria-label="Год активов"></select>
             </label>
             <label>
               Месяц
@@ -225,7 +225,7 @@
           <div class="budget-period-picker">
             <label>
               Год
-              <input id="budgetYearInput" type="number" min="2000" max="2100" />
+              <select class="year-select" id="budgetYearInput" aria-label="Год бюджета"></select>
             </label>
             <label>
               Месяц
@@ -491,6 +491,6 @@
     <div class="structure-tooltip" id="structureTooltip" hidden></div>
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260724-100"></script>
+    <script src="app.js?v=20260724-101"></script>
   </body>
 </html>
