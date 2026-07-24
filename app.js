@@ -157,6 +157,7 @@ let chartHitAreas = [];
 let chartHoverIndex = null;
 let chartSelectedIndex = null;
 let saveNoticeTimer = null;
+let assetSortable = null;
 let authState = {
   provider: "supabase",
   user: null,
@@ -915,6 +916,7 @@ function formatSelectedYears(years) {
 }
 
 function renderAssets() {
+  destroyAssetSortable();
   const rows = state.currentRows ?? [];
   const total = sumRows(rows);
   const totals = getAssetGroupTotals(rows);
@@ -952,7 +954,7 @@ function renderAssets() {
 
   els.assetRows.innerHTML = activeRows.length
     ? activeRows
-        .map(({ row, index }, position) => renderAssetEntry(row, index, position, activeRows.length))
+        .map(({ row, index }, position) => renderAssetEntry(row, index, position))
         .join("")
     : `
       <div class="asset-entry-empty">
@@ -986,14 +988,10 @@ function renderAssets() {
     });
   });
 
-  els.assetRows.querySelectorAll("[data-asset-move]").forEach((button) => {
-    button.addEventListener("click", () => {
-      moveAssetRow(Number(button.dataset.assetMove), button.dataset.direction);
-    });
-  });
+  initializeAssetSorting(activeRows.length);
 }
 
-function renderAssetEntry(row, index, position, groupCount) {
+function renderAssetEntry(row, index, position) {
   const group = getAssetGroup(row.group);
   const hasType = group.types.length > 1;
   const hasAutomaticName = usesAutomaticAssetName(row.group, row.type);
@@ -1034,8 +1032,16 @@ function renderAssetEntry(row, index, position, groupCount) {
           ${renderAssetPrimaryValue(row, index)}
         </div>
         <div class="category-actions">
-          <button class="move-category" type="button" data-asset-move="${index}" data-direction="up" ${position === 0 ? "disabled" : ""} aria-label="Поднять актив" title="Поднять актив">↑</button>
-          <button class="move-category" type="button" data-asset-move="${index}" data-direction="down" ${position === groupCount - 1 ? "disabled" : ""} aria-label="Опустить актив" title="Опустить актив">↓</button>
+          <span class="asset-drag-handle" aria-hidden="true" title="Перетащить актив">
+            <svg viewBox="0 0 16 20">
+              <circle cx="5" cy="4" r="1.25" />
+              <circle cx="11" cy="4" r="1.25" />
+              <circle cx="5" cy="10" r="1.25" />
+              <circle cx="11" cy="10" r="1.25" />
+              <circle cx="5" cy="16" r="1.25" />
+              <circle cx="11" cy="16" r="1.25" />
+            </svg>
+          </span>
           <button class="delete-row" type="button" data-asset-delete="${index}" aria-label="Удалить актив" title="Удалить актив">×</button>
         </div>
       </div>
@@ -1764,19 +1770,56 @@ function updateDisplayedAssetTotals() {
   });
 }
 
-function moveAssetRow(index, direction) {
-  const row = state.currentRows[index];
-  if (!row) return;
-  const groupIndexes = state.currentRows
-    .map((item, itemIndex) => (item.group === row.group ? itemIndex : -1))
-    .filter((itemIndex) => itemIndex >= 0);
-  const position = groupIndexes.indexOf(index);
-  const nextPosition = direction === "up" ? position - 1 : position + 1;
-  if (nextPosition < 0 || nextPosition >= groupIndexes.length) return;
+function destroyAssetSortable() {
+  assetSortable?.destroy();
+  assetSortable = null;
+}
 
-  const nextIndex = groupIndexes[nextPosition];
-  [state.currentRows[index], state.currentRows[nextIndex]] = [state.currentRows[nextIndex], state.currentRows[index]];
-  renderAssets();
+function initializeAssetSorting(rowCount) {
+  if (rowCount < 2 || !els.assetRows || !window.Sortable) return;
+
+  assetSortable = window.Sortable.create(els.assetRows, {
+    animation: 180,
+    direction: "vertical",
+    draggable: ".asset-entry-card",
+    handle: ".asset-drag-handle",
+    ghostClass: "asset-entry-ghost",
+    chosenClass: "asset-entry-chosen",
+    dragClass: "asset-entry-dragging",
+    fallbackClass: "asset-entry-dragging",
+    fallbackOnBody: true,
+    fallbackTolerance: 4,
+    delay: 180,
+    delayOnTouchOnly: true,
+    touchStartThreshold: 4,
+    scrollSensitivity: 80,
+    scrollSpeed: 12,
+    onEnd(event) {
+      const oldPosition = event.oldDraggableIndex;
+      const newPosition = event.newDraggableIndex;
+      if (!Number.isInteger(oldPosition) || !Number.isInteger(newPosition) || oldPosition === newPosition) return;
+
+      reorderActiveAssetRows(oldPosition, newPosition);
+      window.setTimeout(() => {
+        renderAssets();
+        void saveSelectedMonth();
+      }, 0);
+    },
+  });
+}
+
+function reorderActiveAssetRows(oldPosition, newPosition) {
+  const groupIndexes = state.currentRows
+    .map((row, index) => (row.group === activeAssetGroup ? index : -1))
+    .filter((index) => index >= 0);
+  const groupRows = groupIndexes.map((index) => state.currentRows[index]);
+  const [movedRow] = groupRows.splice(oldPosition, 1);
+  if (!movedRow) return;
+
+  groupRows.splice(newPosition, 0, movedRow);
+  groupIndexes.forEach((stateIndex, position) => {
+    state.currentRows[stateIndex] = groupRows[position];
+  });
 }
 
 function addAssetRow() {
