@@ -268,6 +268,7 @@ async function init() {
   setCurrentMonth();
   updateTodayDate();
   bindEvents();
+  activeAssetGroup = getAssetGroupFromUrl();
   selectTab(getTabFromUrl(), { updateUrl: false });
   bindSupabaseAuthEvents();
   await hydrateSession();
@@ -482,9 +483,20 @@ function getTabFromUrl() {
   return APP_TABS.includes(requestedTab) ? requestedTab : "dashboard";
 }
 
+function getAssetGroupFromUrl() {
+  const requestedGroup = new URLSearchParams(window.location.search).get("asset");
+  return ASSET_GROUPS.some(({ id }) => id === requestedGroup) ? requestedGroup : "banks";
+}
+
 function updateTabUrl(tabName) {
   const url = new URL(window.location.href);
   url.searchParams.set("tab", tabName);
+  window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+function updateAssetGroupUrl(groupId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("asset", groupId);
   window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -975,6 +987,7 @@ function renderAssets() {
   els.assetGroupNav.querySelectorAll("[data-asset-group]").forEach((button) => {
     button.addEventListener("click", () => {
       activeAssetGroup = button.dataset.assetGroup;
+      updateAssetGroupUrl(activeAssetGroup);
       renderAssets();
     });
   });
