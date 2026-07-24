@@ -3071,6 +3071,16 @@ td {
   font-weight: 850;
 }
 
+.asset-entry-empty-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .asset-entry-empty strong {
   color: var(--ink);
   font-size: 15px;
