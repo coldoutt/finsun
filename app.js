@@ -520,8 +520,10 @@ function bindEvents() {
   els.chart.addEventListener("click", handleChartClick);
   window.addEventListener("resize", () => {
     resetChartInteraction();
+    hideStructureTooltip();
     drawChart();
   });
+  document.addEventListener("scroll", hideStructureTooltip, true);
 }
 
 function selectTab(name, options = {}) {
@@ -1686,27 +1688,36 @@ function showStructureTooltip(row) {
     </div>
   `;
 
-  const sectionRect = els.structureTooltip.parentElement.getBoundingClientRect();
-  const rowRect = row.getBoundingClientRect();
-  const tooltipWidth = 260;
-  const left = Math.min(Math.max(rowRect.left - sectionRect.left + 20, 12), sectionRect.width - tooltipWidth - 12);
-  els.structureTooltip.style.left = `${left}px`;
+  els.structureTooltip.style.left = "0";
   els.structureTooltip.style.top = "0";
   els.structureTooltip.hidden = false;
+  positionStructureTooltip(row);
+}
 
-  const tooltipHeight = els.structureTooltip.getBoundingClientRect().height;
-  const belowViewportTop = rowRect.bottom + 8;
-  const aboveViewportTop = rowRect.top - tooltipHeight - 8;
-  const viewportPadding = 10;
-  let viewportTop = belowViewportTop;
+function positionStructureTooltip(row) {
+  const viewportPadding = 12;
+  const gap = 8;
+  const rowRect = row.getBoundingClientRect();
+  const tooltipRect = els.structureTooltip.getBoundingClientRect();
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - tooltipRect.width - viewportPadding);
+  const left = Math.min(Math.max(rowRect.left + 20, viewportPadding), maxLeft);
+  const belowTop = rowRect.bottom + gap;
+  const aboveTop = rowRect.top - tooltipRect.height - gap;
+  const fitsBelow = belowTop + tooltipRect.height <= window.innerHeight - viewportPadding;
+  const fitsAbove = aboveTop >= viewportPadding;
+  let top = belowTop;
 
-  if (belowViewportTop + tooltipHeight > window.innerHeight - viewportPadding && aboveViewportTop >= viewportPadding) {
-    viewportTop = aboveViewportTop;
-  } else if (belowViewportTop + tooltipHeight > window.innerHeight - viewportPadding) {
-    viewportTop = Math.max(viewportPadding, window.innerHeight - tooltipHeight - viewportPadding);
+  if (!fitsBelow && fitsAbove) {
+    top = aboveTop;
+  } else if (!fitsBelow) {
+    const spaceBelow = window.innerHeight - rowRect.bottom;
+    const spaceAbove = rowRect.top;
+    top = spaceAbove > spaceBelow ? aboveTop : belowTop;
   }
 
-  els.structureTooltip.style.top = `${viewportTop - sectionRect.top}px`;
+  const maxTop = Math.max(viewportPadding, window.innerHeight - tooltipRect.height - viewportPadding);
+  els.structureTooltip.style.left = `${left}px`;
+  els.structureTooltip.style.top = `${Math.min(Math.max(top, viewportPadding), maxTop)}px`;
 }
 
 function hideStructureTooltip() {
