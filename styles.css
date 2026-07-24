@@ -3049,6 +3049,14 @@ td {
   outline: 0;
 }
 
+.asset-field select:disabled {
+  border-color: var(--line);
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .asset-calculated-field {
   display: flex;
   align-items: center;
