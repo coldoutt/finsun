@@ -2666,8 +2666,7 @@ td {
   z-index: 1;
 }
 
-.asset-month-kicker,
-.asset-editor-kicker {
+.asset-month-kicker {
   display: block;
   margin-bottom: 5px;
   color: #64d5b2;
@@ -2901,8 +2900,10 @@ td {
 
 .asset-editor-heading h2 {
   margin: 0;
-  font-size: 21px;
-  letter-spacing: -0.04em;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .asset-editor-heading p {
@@ -2910,11 +2911,7 @@ td {
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
-}
-
-.asset-editor-kicker {
-  margin-bottom: 2px;
-  color: #218767;
+  line-height: 1.15;
 }
 
 .asset-editor-summary {
