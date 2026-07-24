@@ -124,6 +124,7 @@ const FIAT_CURRENCY_OPTIONS = [
   { code: "EUR", label: "EUR — евро" },
   { code: "HKD", label: "HKD — гонконгский доллар" },
 ];
+const RUBLE_CURRENCY_OPTION = { code: "RUB", label: "RUB — рубль" };
 const CRYPTO_CURRENCY_OPTIONS = [
   { code: "BTC", label: "BTC — биткоин" },
   { code: "ETH", label: "ETH — эфириум" },
@@ -1019,7 +1020,7 @@ function renderAssetEntry(row, index, position, groupCount) {
   const group = getAssetGroup(row.group);
   const hasType = group.types.length > 1;
   const hasAutomaticName = usesAutomaticAssetName(row.group, row.type);
-  const hasCodeSelector = row.group === "crypto" || (row.group === "cash" && row.type === "currency");
+  const hasCodeSelector = row.group === "crypto" || row.group === "cash";
   const primaryFieldCount = Number(!hasAutomaticName) + Number(hasType) + Number(hasCodeSelector) + 1;
   const details = renderAssetSpecificFields(row, index);
   const detailsLayout = isConvertibleAsset(row.group, row.type) ? "is-two-fields" : "is-one-field";
@@ -1095,11 +1096,16 @@ function renderAssetSpecificFields(row, index) {
 
 function renderAssetCodeField(row, index) {
   const isCrypto = row.group === "crypto";
-  const options = isCrypto ? CRYPTO_CURRENCY_OPTIONS : FIAT_CURRENCY_OPTIONS;
+  const isRuble = row.group === "cash" && row.type === "cash";
+  const options = isCrypto
+    ? CRYPTO_CURRENCY_OPTIONS
+    : isRuble
+      ? [RUBLE_CURRENCY_OPTION]
+      : FIAT_CURRENCY_OPTIONS;
   return `
     <label class="asset-field asset-field-code">
       ${isCrypto ? "Монета" : "Валюта"}
-      <select data-asset-field="currencyCode" data-index="${index}">
+      <select data-asset-field="currencyCode" data-index="${index}" ${isRuble ? "disabled aria-disabled=\"true\"" : ""}>
         ${options
           .map(({ code, label }) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${label}</option>`)
           .join("")}
