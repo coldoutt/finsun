@@ -2742,9 +2742,14 @@ td {
   color: #1d2d30;
 }
 
-.year-select {
+.asset-month-picker select,
+.budget-period-picker select {
+  -webkit-appearance: none;
   appearance: none;
+  box-sizing: border-box;
   min-width: 112px;
+  height: 40px;
+  min-height: 40px;
   padding-right: 36px !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
@@ -2753,7 +2758,8 @@ td {
   cursor: pointer;
 }
 
-.year-select:focus {
+.asset-month-picker select:focus,
+.budget-period-picker select:focus {
   border-color: rgba(100, 213, 178, 0.8);
   box-shadow: 0 0 0 3px rgba(100, 213, 178, 0.16);
   outline: 0;
@@ -3976,13 +3982,14 @@ body[data-theme="dark"] .profile-menu {
 
   .asset-month-picker {
     display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 16px;
   }
 
   .asset-month-picker label,
   .asset-month-picker input,
   .asset-month-picker select {
+    min-width: 0;
     width: 100%;
   }
 
@@ -4080,13 +4087,14 @@ body[data-theme="dark"] .profile-menu {
 
   .budget-period-picker {
     display: grid;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 18px;
   }
 
   .budget-period-picker label,
   .budget-period-picker input,
   .budget-period-picker select {
+    min-width: 0;
     width: 100%;
   }
 
