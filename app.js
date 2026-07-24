@@ -965,38 +965,54 @@ function renderAssets() {
 
 function renderAssetEntry(row, index, position, groupCount) {
   const group = getAssetGroup(row.group);
+  const hasType = group.types.length > 1;
+  const details = renderAssetSpecificFields(row, index);
   return `
     <article class="asset-entry-card" data-asset-entry="${index}">
-      <div class="asset-entry-card-head">
+      <div class="asset-entry-main">
         <span class="asset-entry-number">${String(position + 1).padStart(2, "0")}</span>
-        <strong>${escapeHtml(row.name)}</strong>
-        <span class="asset-entry-value" data-asset-row-total="${index}">${formatMoney(row.amount)}</span>
+        <div class="asset-entry-main-fields ${hasType ? "has-type" : ""}">
+          <label class="asset-field asset-field-name">
+            Название
+            <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
+          </label>
+          ${hasType
+            ? `
+              <label class="asset-field asset-field-type">
+                Тип
+                <select data-asset-field="type" data-index="${index}">
+                  ${group.types
+                    .map(([value, label]) => `<option value="${value}" ${row.type === value ? "selected" : ""}>${label}</option>`)
+                    .join("")}
+                </select>
+              </label>
+            `
+            : ""}
+          ${renderAssetPrimaryValue(row, index)}
+        </div>
         <div class="category-actions">
-          <button class="move-category" type="button" data-asset-move="${index}" data-direction="up" ${position === 0 ? "disabled" : ""} title="Поднять актив">↑</button>
-          <button class="move-category" type="button" data-asset-move="${index}" data-direction="down" ${position === groupCount - 1 ? "disabled" : ""} title="Опустить актив">↓</button>
-          <button class="delete-row" type="button" data-asset-delete="${index}" title="Удалить актив">×</button>
+          <button class="move-category" type="button" data-asset-move="${index}" data-direction="up" ${position === 0 ? "disabled" : ""} aria-label="Поднять актив" title="Поднять актив">↑</button>
+          <button class="move-category" type="button" data-asset-move="${index}" data-direction="down" ${position === groupCount - 1 ? "disabled" : ""} aria-label="Опустить актив" title="Опустить актив">↓</button>
+          <button class="delete-row" type="button" data-asset-delete="${index}" aria-label="Удалить актив" title="Удалить актив">×</button>
         </div>
       </div>
-      <div class="asset-entry-fields">
-        <label class="asset-field asset-field-name">
-          Название
-          <input data-asset-field="name" data-index="${index}" value="${escapeHtml(row.name)}" />
-        </label>
-        ${group.types.length > 1
-          ? `
-            <label class="asset-field">
-              Тип
-              <select data-asset-field="type" data-index="${index}">
-                ${group.types
-                  .map(([value, label]) => `<option value="${value}" ${row.type === value ? "selected" : ""}>${label}</option>`)
-                  .join("")}
-              </select>
-            </label>
-          `
-          : ""}
-        ${renderAssetSpecificFields(row, index)}
-      </div>
+      ${details ? `<div class="asset-entry-details">${details}</div>` : ""}
     </article>
+  `;
+}
+
+function renderAssetPrimaryValue(row, index) {
+  if (!isConvertibleAsset(row.group, row.type)) {
+    return renderAssetNumberField("Стоимость, ₽", "amount", row.amount, index, "money", "asset-field-value");
+  }
+
+  return `
+    <div class="asset-field asset-field-value">
+      <span>Стоимость в рублях</span>
+      <div class="asset-calculated-field">
+        <strong data-asset-calculated="${index}">${formatMoney(row.amount)}</strong>
+      </div>
+    </div>
   `;
 }
 
@@ -1016,34 +1032,28 @@ function renderAssetSpecificFields(row, index) {
       </label>
       ${renderAssetNumberField("Количество", "units", row.units, index, "decimal")}
       ${renderAssetNumberField(rateLabel, "unitRate", row.unitRate, index, "decimal")}
-      <div class="asset-calculated-field">
-        <span>Стоимость в рублях</span>
-        <strong data-asset-calculated="${index}">${formatMoney(row.amount)}</strong>
-      </div>
     `;
   }
 
-  const amountField = renderAssetNumberField("Стоимость, ₽", "amount", row.amount, index, "money");
   if (row.group === "banks") {
-    const depositFields = row.type === "deposit" || row.type === "savings"
+    return row.type === "deposit" || row.type === "savings"
       ? `
         ${renderAssetNumberField("Ставка, % годовых", "annualRate", row.annualRate, index, "decimal")}
         ${renderAssetDateField("Дата открытия", "openedAt", row.openedAt, index)}
         ${renderAssetDateField("Дата окончания", "closesAt", row.closesAt, index)}
       `
       : "";
-    return `${amountField}${depositFields}`;
   }
   if (row.group === "property") {
-    return `${amountField}${renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index)}`;
+    return renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index);
   }
-  return amountField;
+  return "";
 }
 
-function renderAssetNumberField(label, field, value, index, format) {
+function renderAssetNumberField(label, field, value, index, format, className = "") {
   const displayValue = format === "money" ? formatPlainNumber(value) : formatAssetDecimal(value);
   return `
-    <label class="asset-field">
+    <label class="asset-field ${className}">
       ${label}
       <input
         data-asset-field="${field}"
@@ -1643,10 +1653,6 @@ function updateAssetFieldFromInput(event) {
     recalculateAssetAmount(row);
   }
 
-  if (field === "name") {
-    const title = input.closest(".asset-entry-card")?.querySelector(".asset-entry-card-head > strong");
-    if (title) title.textContent = input.value || "Без названия";
-  }
   updateDisplayedAssetTotals();
 }
 
@@ -1694,10 +1700,6 @@ function updateDisplayedAssetTotals() {
   });
   els.assetTotalCell.textContent = formatMoney(sumRows(state.currentRows));
   els.assetGroupTotal.textContent = formatMoney(totals[activeAssetGroup] || 0);
-  els.assetRows.querySelectorAll("[data-asset-row-total]").forEach((element) => {
-    const index = Number(element.dataset.assetRowTotal);
-    element.textContent = formatMoney(state.currentRows[index]?.amount || 0);
-  });
   els.assetRows.querySelectorAll("[data-asset-calculated]").forEach((element) => {
     const index = Number(element.dataset.assetCalculated);
     element.textContent = formatMoney(state.currentRows[index]?.amount || 0);
