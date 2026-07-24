@@ -7,8 +7,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../../");
-const port = 5500;
-const backendPort = 3000;
+const port = Number(process.env.PORT || 5500);
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -30,11 +29,6 @@ function resolvePath(urlPath) {
 }
 
 const server = http.createServer(async (req, res) => {
-  if ((req.url || "").startsWith("/api/")) {
-    proxyApiRequest(req, res);
-    return;
-  }
-
   const filePath = resolvePath(req.url);
   if (!filePath.startsWith(rootDir)) {
     res.writeHead(403);
@@ -66,26 +60,3 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Static frontend listening on http://localhost:${port}`);
 });
-
-function proxyApiRequest(req, res) {
-  const proxyRequest = http.request({
-    hostname: "localhost",
-    port: backendPort,
-    path: req.url,
-    method: req.method,
-    headers: req.headers,
-  }, (proxyResponse) => {
-    res.writeHead(proxyResponse.statusCode || 502, proxyResponse.headers);
-    proxyResponse.pipe(res);
-  });
-
-  proxyRequest.on("error", () => {
-    res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({
-      error: "backend_unavailable",
-      message: "Backend API is unavailable on localhost:3000.",
-    }));
-  });
-
-  req.pipe(proxyRequest);
-}

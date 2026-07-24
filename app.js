@@ -1,11 +1,10 @@
 const AUTH_STORAGE_KEY = "finance-auth-v1";
+const LEGACY_FINANCE_STORAGE_KEY = "finance-summary-v1";
 const THEME_KEY = "finance-theme";
 const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BHG2D4weWXsm2LKbH6AIxg_dPBJ0Fnh";
 const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finsun/main/metrics.json";
-const OWNER_EMAIL = "tonygazz@gmail.com";
-const OWNER_HISTORY_VERSION = 1;
 const APP_TABS = ["dashboard", "budget", "assets", "history", "settings"];
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -123,142 +122,6 @@ const ASSET_GROUPS = [
 const FIAT_CURRENCIES = ["USD", "EUR", "HKD"];
 const LEGACY_FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
 const CRYPTO_CURRENCIES = ["BTC", "ETH", "USDT", "TON", "SOL", "BNB", "USDC"];
-
-const ownerSeedRows = [
-  ["Банк. Карта", "Альфа", 0],
-  ["Банк. Карта", "Яндекс", 83660],
-  ["Банк. Карта", "Т-Банк", 0],
-  ["Банк.Счет", "Альфа", 0],
-  ["Банк.Счет", "OZON", 0],
-  ["Банк.Счет", "WB", 878998],
-  ["Банк.Вклад", "WB", 1744383],
-  ["Банк.Вклад", "Т-Банк", 1034698],
-  ["Банк.Вклад", "Яндекс", 2106186],
-  ["Биржа", "Портфель", 27147],
-  ["Биржа", "ИИС", 2488842],
-  ["Биржа", "Заблокированное", 50000],
-  ["Криптовалюта", "BTC", 151000],
-  ["Криптовалюта", "TON", 1000],
-  ["Прочее", "Александр", 600000],
-  ["Наличные", "Рубли", 0],
-  ["Наличные", "Доллары", 78000],
-  ["Наличные", "Доллары Гонконг", 112],
-  ["Прочее", "Баты", 515],
-  ["Прочее", "Юани", 2500],
-  ["Наличные", "Евро", 190000],
-].map(([category, name, amount]) => ({ category, name, amount }));
-
-const ownerSeedRecords = [
-  [2018, 0, 1669978],
-  [2018, 1, 1705192],
-  [2018, 2, 1615314],
-  [2018, 3, 1653257],
-  [2018, 4, 1928825],
-  [2018, 5, 1870501],
-  [2018, 6, 1857858],
-  [2018, 7, 1886796],
-  [2018, 8, 1812265],
-  [2018, 9, 1777527],
-  [2018, 10, 1692597],
-  [2018, 11, 1764550],
-  [2019, 0, 1620240],
-  [2019, 1, 1547620],
-  [2019, 2, 1650342],
-  [2019, 3, 1611234],
-  [2019, 4, 1593343],
-  [2019, 5, 1485480],
-  [2019, 6, 1337423],
-  [2019, 7, 1430232],
-  [2019, 8, 1635863],
-  [2019, 9, 1580452],
-  [2019, 10, 1550698],
-  [2019, 11, 1496568],
-  [2020, 0, 1703181],
-  [2020, 1, 1650332],
-  [2020, 2, 1610924],
-  [2020, 3, 1860221],
-  [2020, 4, 1790654],
-  [2020, 5, 1764550],
-  [2020, 6, 1635863],
-  [2020, 7, 1765732],
-  [2020, 8, 1654778],
-  [2020, 9, 1856876],
-  [2020, 10, 1967918],
-  [2020, 11, 1979343],
-  [2021, 0, 2052003],
-  [2021, 1, 2120518],
-  [2021, 2, 2301268],
-  [2021, 3, 2237898],
-  [2021, 4, 2303719],
-  [2021, 5, 2504841],
-  [2021, 6, 2522866],
-  [2021, 7, 2599506],
-  [2021, 8, 2624383],
-  [2021, 9, 2634613],
-  [2021, 10, 2752578],
-  [2021, 11, 2789386],
-  [2022, 0, 2845085],
-  [2022, 1, 2890223],
-  [2022, 2, 2998607],
-  [2022, 3, 3153839],
-  [2022, 4, 3198602],
-  [2022, 5, 3202787],
-  [2022, 6, 3228705],
-  [2022, 7, 3401622],
-  [2022, 8, 3436564],
-  [2022, 9, 3570118],
-  [2022, 10, 3721606],
-  [2022, 11, 3759559],
-  [2023, 0, 3824648],
-  [2023, 1, 3921817],
-  [2023, 2, 4186771],
-  [2023, 3, 4288299],
-  [2023, 4, 4405574],
-  [2023, 5, 4594270],
-  [2023, 6, 4697339],
-  [2023, 7, 4839181],
-  [2023, 8, 4796272],
-  [2023, 9, 4936351],
-  [2023, 10, 5124582],
-  [2023, 11, 5156159],
-  [2024, 0, 5156500],
-  [2024, 1, 5283711],
-  [2024, 2, 5686789],
-  [2024, 3, 5648644],
-  [2024, 4, 5706628],
-  [2024, 5, 5752040],
-  [2024, 6, 5815659],
-  [2024, 7, 5943143],
-  [2024, 8, 6058127],
-  [2024, 9, 6104230],
-  [2024, 10, 6211292],
-  [2024, 11, 6465176],
-  [2025, 0, 6475469],
-  [2025, 1, 6906388],
-  [2025, 2, 6996459],
-  [2025, 3, 7001131],
-  [2025, 4, 7133253],
-  [2025, 5, 7392638],
-  [2025, 6, 7691546],
-  [2025, 7, 7841137],
-  [2025, 8, 8075894],
-  [2025, 9, 8123127],
-  [2025, 10, 8148213],
-  [2025, 11, 8405166],
-  [2026, 0, 8515469],
-  [2026, 1, 8662513],
-  [2026, 2, 8865577],
-  [2026, 3, 8976046],
-  [2026, 4, 9120620],
-  [2026, 5, 9437041],
-].map(([year, month, total]) => ({
-  key: recordKey(year, month),
-  year,
-  month,
-  rows: cloneRows(ownerSeedRows),
-  total,
-  savedAt: new Date().toISOString(),
-}));
 
 let state = {
   records: [],
@@ -2315,14 +2178,11 @@ async function loadStateFromSupabase() {
   if (!data) {
     const initialState = await buildInitialAccountState();
     const saved = await saveStateToSupabase(initialState);
+    clearLegacyBrowserStorage(authState.user.email);
     return normalizeState(saved.state, { fallbackRecords: [] });
   }
 
-  if (isOwnerAccount() && needsOwnerHistoryMigration(data.state)) {
-    const saved = await saveStateToSupabase(await buildOwnerSeedState());
-    return normalizeState(saved.state, { fallbackRecords: [] });
-  }
-
+  clearLegacyBrowserStorage(authState.user.email);
   return normalizeState(data.state, { fallbackRecords: [] });
 }
 
@@ -2367,22 +2227,62 @@ function getLegacyBrowserState(email) {
   return legacyUser ? store.financeStates[String(legacyUser.id)] || null : null;
 }
 
+function clearLegacyBrowserStorage(email) {
+  try {
+    localStorage.removeItem(LEGACY_FINANCE_STORAGE_KEY);
+
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    const users = Array.isArray(parsed?.users) ? parsed.users : [];
+    const targetIds = users
+      .filter((item) => String(item.email || "").trim().toLowerCase() === normalizedEmail)
+      .map((item) => String(item.id));
+    if (!targetIds.length) return;
+
+    const financeStates = parsed?.financeStates && typeof parsed.financeStates === "object"
+      ? { ...parsed.financeStates }
+      : {};
+    targetIds.forEach((id) => delete financeStates[id]);
+    const remainingUsers = users.filter((item) => !targetIds.includes(String(item.id)));
+    const currentUserId = targetIds.includes(String(parsed?.currentUserId))
+      ? null
+      : parsed?.currentUserId || null;
+
+    if (!remainingUsers.length && !Object.keys(financeStates).length) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      nextUserId: Number(parsed?.nextUserId || 1),
+      currentUserId,
+      users: remainingUsers,
+      financeStates,
+    }));
+  } catch {
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch {
+      // Storage may be unavailable in privacy-restricted browser contexts.
+    }
+  }
+}
+
 function getUserProfile(user) {
   const defaults = getDefaultUserProfile(user?.email);
-  const isLegacyOwnerProfile = String(user?.email || "").toLowerCase() === OWNER_EMAIL
-    && user?.firstName === "Tony"
-    && user?.lastName === "Gazz";
   return {
-    firstName: String(isLegacyOwnerProfile ? defaults.firstName : user?.firstName || defaults.firstName).trim(),
-    lastName: String(isLegacyOwnerProfile ? defaults.lastName : user?.lastName || defaults.lastName).trim(),
+    firstName: String(user?.firstName || defaults.firstName).trim(),
+    lastName: String(user?.lastName || defaults.lastName).trim(),
   };
 }
 
 function getDefaultUserProfile(email) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
-  if (normalizedEmail === OWNER_EMAIL) {
-    return { firstName: "Антон", lastName: "Гасилин" };
-  }
   const parts = normalizedEmail
     .split("@")[0]
     .split(/[._-]+/)
@@ -2403,7 +2303,6 @@ async function buildInitialAccountState() {
   if (legacyState && !needsEmptyStateMigration(legacyState)) {
     return normalizeState(legacyState, { fallbackRecords: [] });
   }
-  if (isOwnerAccount()) return buildOwnerSeedState();
   return buildGuestState();
 }
 
@@ -2488,32 +2387,6 @@ function buildGuestState() {
   return normalizeState(null, { fallbackRecords: [] });
 }
 
-function isOwnerAccount() {
-  return String(authState.user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
-}
-
-function needsOwnerHistoryMigration(value) {
-  return Number(value?.ownerHistoryVersion || 0) < OWNER_HISTORY_VERSION;
-}
-
-async function buildOwnerSeedState() {
-  try {
-    const response = await fetch("finance.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(`Seed data error: ${response.status}`);
-    const state = normalizeState(await response.json(), { fallbackRecords: [] });
-    state.ownerHistoryVersion = OWNER_HISTORY_VERSION;
-    return state;
-  } catch (error) {
-    console.error("Owner seed data load failed", error);
-    return {
-      records: ownerSeedRecords.map((record) => normalizeRecordState(record)).filter(Boolean),
-      currentRows: cloneRows(ownerSeedRows),
-      budgets: [],
-      ownerHistoryVersion: OWNER_HISTORY_VERSION,
-    };
-  }
-}
-
 function showSaveNotice(message, tone = "success") {
   if (!els.saveNotice) return;
   window.clearTimeout(saveNoticeTimer);
@@ -2546,7 +2419,6 @@ function normalizeState(value, options = {}) {
     records,
     currentRows: cloneRows(currentRows),
     budgets: Array.from(budgetMap.values()).sort((a, b) => a.year - b.year || a.month - b.month),
-    ownerHistoryVersion: Number(value?.ownerHistoryVersion || 0),
   };
 }
 

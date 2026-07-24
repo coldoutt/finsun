@@ -1,57 +1,59 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Project Structure
 
 This repository is a static finance dashboard.
 
-- `index.html` defines the application shell and UI markup.
-- `styles.css` contains all visual styling and responsive layout rules.
-- `app.js` contains client-side state, rendering, event handling, and GitHub REST API persistence.
-- `finance.json` is persisted user data; avoid overwriting it during experiments.
+- `index.html` defines the application shell.
+- `styles.css` contains visual and responsive styling.
+- `app.js` contains state, rendering, events, Supabase Auth, and Supabase data
+  persistence.
+- `supabase-schema.sql` documents the Supabase tables, triggers, and RLS
+  policies.
+- `metrics.json` contains public CBR rates and inflation data.
+- `server/scripts/static-server.js` serves local static files only.
+- `server/scripts/update-static-metrics.js` updates public CBR metrics.
 
-Saving must remain browser -> GitHub REST API -> `finance.json`. Do not introduce another persistence path unless explicitly requested.
+Do not add personal financial seed data, user emails, passwords, session
+tokens, or local account databases to the repository.
 
-There is no separate `src/`, `tests/`, or assets directory; keep new files at the root only when they fit this layout.
+## Commands
 
-## Build, Test, and Development Commands
+- `npm run web:start` starts the static site at `http://localhost:5500`.
+- `npm run metrics:update` refreshes `metrics.json`.
+- There is no build step.
 
-There is no package manager setup, build step, install command, or start script.
+## Data Persistence
 
-Open `index.html` directly in a browser, or use the published static site. Saving requires a user-provided GitHub fine-grained token with `Contents: Read and write` permission for `coldoutt/finance`.
+Production persistence must remain browser -> Supabase:
 
-## Coding Style & Naming Conventions
+- Supabase Auth stores accounts and password hashes.
+- `public.profiles` stores profile names.
+- `public.finance_states` stores assets, history, and budgets.
+- RLS must restrict every row to its matching `auth.uid()`.
 
-Use plain JavaScript, HTML, and CSS. Match the existing style:
+Do not introduce file-based, GitHub API, or browser financial persistence.
+Supabase may persist its access and refresh tokens in browser storage; never
+store passwords there.
 
-- 2-space indentation in HTML, CSS, and JavaScript.
-- Double quotes in JavaScript strings.
-- `const` and `let` over `var`.
-- Descriptive camelCase names for JavaScript, such as `saveData` or `currentRows`.
-- Kebab-case CSS class names, such as `primary-button` or `table-wrap`.
+## Coding Style
 
-Keep all app behavior in `app.js`. Do not introduce backend persistence unless explicitly requested.
+- Use plain JavaScript, HTML, and CSS.
+- Use 2-space indentation.
+- Use double quotes in JavaScript.
+- Prefer `const` and `let`.
+- Use camelCase JavaScript names and kebab-case CSS classes.
+- Keep application behavior in `app.js`.
 
-## Testing Guidelines
+## Verification
 
-No automated tests are currently configured. For changes, perform manual verification:
+For frontend changes:
 
-1. Open `index.html` or the published static site.
-2. Confirm the dashboard loads data from `finance.json` or from GitHub REST API when a token is configured.
-3. Confirm saving updates `finance.json` through GitHub REST API when a valid token is configured.
+1. Run `node --check app.js`.
+2. Open the local static site.
+3. Confirm unauthenticated state is empty.
+4. Confirm authenticated data loads and saves through Supabase.
+5. Check the browser console for errors.
 
-If tests are added later, place them in a `tests/` directory and document the run command here.
-
-## Commit & Pull Request Guidelines
-
-Use concise, imperative commit messages, for example `Refine asset chart scaling`.
-
-Pull requests should include:
-
-- A short description of the user-visible change.
-- Manual test steps and results.
-- Screenshots for UI changes.
-- Notes about any changes to `finance.json` or data format.
-
-## Security & Configuration Tips
-
-Never commit a GitHub token. The token is entered by the user in the browser and stored only in that browser's `localStorage`.
+Never expose a Supabase secret or service-role key. The publishable key in the
+browser is expected and must be protected by RLS.

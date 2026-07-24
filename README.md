@@ -1,26 +1,34 @@
-# Финансовые итоги
+# finsun
 
-Статическое веб-приложение работает на GitHub Pages, а регистрация и персональные данные хранятся в Supabase.
+Статическое финансовое веб-приложение работает на GitHub Pages. Регистрация,
+профили и персональные финансовые данные хранятся в Supabase.
 
 ## Хранение данных
 
-- Логины и безопасные хеши паролей находятся в закрытой таблице `auth.users`. Пароли в открытом виде не сохраняются и недоступны приложению.
+- Email и хеши паролей находятся в закрытой схеме Supabase Auth.
 - Имя и фамилия находятся в `public.profiles`.
-- История финансов и текущие активы находятся в JSON-поле `public.finance_states.state`.
-- Политики Row Level Security разрешают пользователю работать только со строками, связанными с его `auth.uid()`.
-- `finance.json` содержит исходные исторические данные владельца. Они автоматически копируются в Supabase при первом подтверждённом входе `tonygazz@gmail.com`.
-- Старые данные из `localStorage` автоматически переносятся при первом входе в соответствующий Supabase-аккаунт на том же устройстве.
+- Активы, история и бюджеты находятся в JSON-поле
+  `public.finance_states.state`.
+- Row Level Security ограничивает доступ строками текущего `auth.uid()`.
+- В репозитории нет персональных финансовых seed-данных или локальной базы
+  пользователей.
+- После успешной загрузки аккаунта приложение удаляет старые данные этого
+  пользователя из legacy-ключа `finance-auth-v1` и удаляет устаревший ключ
+  `finance-summary-v1`.
 
-Публичный ключ Supabase в `app.js` предназначен для браузера и не является секретом. Без пользовательской сессии и разрешения RLS он не даёт доступа к данным.
+Supabase сохраняет в браузере только пользовательскую сессию, поскольку в
+клиенте включён `persistSession`. Пароль в `localStorage` не записывается.
 
-## Настройка Supabase
+## Supabase
 
-Схема проекта хранится в `supabase-schema.sql` и уже применена как миграция `create_user_profiles_and_finance_states`.
+Актуальная схема находится в `supabase-schema.sql`.
 
-Для корректного возврата после подтверждения email добавьте в Supabase:
+Для возврата после подтверждения email настройте:
 
-- `Authentication -> URL Configuration -> Site URL`: `https://coldoutt.github.io/finsun/`
-- `Authentication -> URL Configuration -> Redirect URLs`: `https://coldoutt.github.io/finsun/**`
+- `Authentication -> URL Configuration -> Site URL`:
+  `https://coldoutt.github.io/finsun/`
+- `Authentication -> URL Configuration -> Redirect URLs`:
+  `https://coldoutt.github.io/finsun/**`
 
 ## Локальный запуск
 
@@ -30,4 +38,14 @@
 npm run web:start
 ```
 
-Отдельный Express-сервер в `server/` оставлен для локальных экспериментов, но production-версия использует Supabase напрямую.
+Локальный сервер не хранит аккаунты или финансовые данные.
+
+## Метрики ЦБ
+
+Курсы USD/EUR и инфляция находятся в `metrics.json`. Workflow
+`.github/workflows/update-metrics.yml` обновляет файл каждый час. Ручное
+обновление:
+
+```powershell
+npm run metrics:update
+```
