@@ -1853,7 +1853,10 @@ function updateAccountStatus() {
     if (els.profileLastNameInput) els.profileLastNameInput.value = profile.lastName;
     if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
     if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
-    if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = displayName;
+    if (els.profileMenuSubtitle) {
+      els.profileMenuSubtitle.textContent = "";
+      els.profileMenuSubtitle.hidden = true;
+    }
     els.accountNote.textContent = "Изменения сохраняются в защищённом персональном хранилище Supabase.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = true;
     if (els.accountSession) els.accountSession.hidden = false;
@@ -1866,7 +1869,10 @@ function updateAccountStatus() {
     if (els.accountSession) els.accountSession.hidden = true;
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = false;
     if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = true;
-    if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = "Вход в персональный аккаунт";
+    if (els.profileMenuSubtitle) {
+      els.profileMenuSubtitle.textContent = "Вход в персональный аккаунт";
+      els.profileMenuSubtitle.hidden = false;
+    }
   }
 
   const editingEnabled = isAuthenticated();

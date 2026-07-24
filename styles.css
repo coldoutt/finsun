@@ -2299,7 +2299,7 @@ body {
 
 .profile-menu::after {
   top: -6px;
-  right: 24px;
+  right: 19px;
   bottom: auto;
   left: auto;
   border: 0;
@@ -2308,7 +2308,8 @@ body {
 }
 
 .profile-menu-head strong {
-  font-size: 17px;
+  font-size: 19px;
+  line-height: 1.2;
 }
 
 .profile-menu-close {
@@ -3893,7 +3894,7 @@ body[data-theme="dark"] .profile-menu {
   }
 
   .profile-menu::after {
-    right: 16px;
+    right: 8px;
   }
 
   .main-content {
