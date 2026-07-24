@@ -998,20 +998,17 @@ function renderAssetEntry(row, index, position, groupCount) {
   const hasType = group.types.length > 1;
   const hasAutomaticName = usesAutomaticAssetName(row.group, row.type);
   const hasCodeSelector = row.group === "crypto" || row.group === "cash";
-  const hasInlineConversionFields = row.group === "crypto";
-  const primaryFieldCount = Number(!hasAutomaticName)
+  const specificFields = renderAssetSpecificFields(row, index);
+  const fieldCount = Number(!hasAutomaticName)
     + Number(hasType)
     + Number(hasCodeSelector)
-    + (hasInlineConversionFields ? 2 : 0)
+    + getAssetSpecificFieldCount(row)
     + 1;
-  const primaryLayout = primaryFieldCount >= 4 ? "is-four-fields" : primaryFieldCount >= 3 ? "is-three-fields" : "";
-  const details = renderAssetSpecificFields(row, index);
-  const detailsLayout = isConvertibleAsset(row.group, row.type) ? "is-two-fields" : "is-one-field";
   return `
     <article class="asset-entry-card" data-asset-entry="${index}">
       <div class="asset-entry-main">
         <span class="asset-entry-number">${String(position + 1).padStart(2, "0")}</span>
-        <div class="asset-entry-main-fields ${primaryLayout}">
+        <div class="asset-entry-main-fields" style="--asset-field-count: ${fieldCount}">
           ${!hasAutomaticName
             ? `
               <label class="asset-field asset-field-name">
@@ -1033,7 +1030,7 @@ function renderAssetEntry(row, index, position, groupCount) {
             `
             : ""}
           ${hasCodeSelector ? renderAssetCodeField(row, index) : ""}
-          ${hasInlineConversionFields ? renderAssetConversionFields(row, index) : ""}
+          ${specificFields}
           ${renderAssetPrimaryValue(row, index)}
         </div>
         <div class="category-actions">
@@ -1042,7 +1039,6 @@ function renderAssetEntry(row, index, position, groupCount) {
           <button class="delete-row" type="button" data-asset-delete="${index}" aria-label="Удалить актив" title="Удалить актив">×</button>
         </div>
       </div>
-      ${details ? `<div class="asset-entry-details ${detailsLayout}">${details}</div>` : ""}
     </article>
   `;
 }
@@ -1064,13 +1060,19 @@ function renderAssetPrimaryValue(row, index) {
 
 function renderAssetSpecificFields(row, index) {
   if (isConvertibleAsset(row.group, row.type)) {
-    return row.group === "crypto" ? "" : renderAssetConversionFields(row, index);
+    return renderAssetConversionFields(row, index);
   }
 
   if (row.group === "property") {
     return renderAssetDateField("Дата оценки", "valuationDate", row.valuationDate, index);
   }
   return "";
+}
+
+function getAssetSpecificFieldCount(row) {
+  if (isConvertibleAsset(row.group, row.type)) return 2;
+  if (row.group === "property") return 1;
+  return 0;
 }
 
 function renderAssetConversionFields(row, index) {
