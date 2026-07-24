@@ -12,7 +12,7 @@ create table public.profiles (
 
 create table public.finance_states (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  state jsonb not null default '{"records":[],"currentRows":[],"ownerHistoryVersion":0}'::jsonb
+  state jsonb not null default '{"records":[],"currentRows":[],"budgets":[]}'::jsonb
     check (jsonb_typeof(state) = 'object'),
   updated_at timestamptz not null default now()
 );
