@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260724-99" />
+    <link rel="stylesheet" href="styles.css?v=20260724-100" />
   </head>
   <body>
     <main class="app-shell">
@@ -138,25 +138,21 @@
             <p class="account-note" id="accountNote">Войдите, чтобы сохранять персональные финансовые данные.</p>
           </div>
           <button class="sidebar-login" id="sidebarLoginBtn" type="button" aria-label="Войти в аккаунт" aria-haspopup="dialog" aria-expanded="false">
+            <span class="sidebar-user-copy">
+              <strong>Войти</strong>
+            </span>
             <span class="sidebar-avatar sidebar-avatar-guest" aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
               </svg>
             </span>
-            <span class="sidebar-user-copy">
-              <strong>Войти</strong>
-              <small>Персональный аккаунт</small>
-            </span>
-            <span class="sidebar-user-arrow" aria-hidden="true">›</span>
           </button>
           <button class="sidebar-user" id="sidebarUserBtn" type="button" aria-label="Открыть профиль пользователя" aria-haspopup="dialog" aria-expanded="false" hidden>
-            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">П</span>
             <span class="sidebar-user-copy">
               <strong id="sidebarUserName">Пользователь</strong>
-              <small id="sidebarUserEmail"></small>
             </span>
-            <span class="sidebar-user-arrow" aria-hidden="true">›</span>
+            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">П</span>
           </button>
       </div>
 
@@ -491,6 +487,6 @@
     <div class="structure-tooltip" id="structureTooltip" hidden></div>
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260724-104"></script>
+    <script src="app.js?v=20260724-105"></script>
   </body>
 </html>
