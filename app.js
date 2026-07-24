@@ -33,7 +33,14 @@ const ASSET_GROUPS = [
   {
     id: "banks",
     label: "Банки",
-    icon: "₽",
+    icon: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m3 9 9-5 9 5" />
+        <path d="M4 9h16" />
+        <path d="M6 9v8M10 9v8M14 9v8M18 9v8" />
+        <path d="M3 17h18M2 20h20" />
+      </svg>
+    `,
     description: "Банковские и накопительные счета, а также вклады.",
     defaultType: "account",
     types: [
@@ -45,7 +52,7 @@ const ASSET_GROUPS = [
   {
     id: "cash",
     label: "Наличные",
-    icon: "$",
+    icon: "₽",
     description: "Наличные рубли, доллары США, евро и гонконгские доллары.",
     defaultType: "cash",
     types: [
