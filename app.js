@@ -64,7 +64,12 @@ const ASSET_GROUPS = [
   {
     id: "investments",
     label: "Инвестиции",
-    icon: "↗",
+    icon: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m5 17 5-5 3 3 6-7" />
+        <path d="M15 8h4v4" />
+      </svg>
+    `,
     description: "Брокерские счета и индивидуальные инвестиционные счета.",
     defaultType: "brokerage",
     types: [
@@ -75,7 +80,13 @@ const ASSET_GROUPS = [
   {
     id: "property",
     label: "Недвижимость",
-    icon: "⌂",
+    icon: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m4 11 8-7 8 7" />
+        <path d="M6.5 10.5V20h11v-9.5" />
+        <path d="M10 20v-5h4v5" />
+      </svg>
+    `,
     description: "Жилая и коммерческая недвижимость, земля и другие объекты.",
     defaultType: "apartment",
     types: [
@@ -89,7 +100,12 @@ const ASSET_GROUPS = [
   {
     id: "other",
     label: "Прочее",
-    icon: "+",
+    icon: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    `,
     description: "Долги и другие активы, которые не относятся к основным разделам.",
     defaultType: "other",
     types: [["other", "Другой актив"]],
@@ -1012,7 +1028,7 @@ function renderAssets() {
     })
     .join("");
 
-  els.assetEditorIcon.textContent = activeGroup.icon;
+  els.assetEditorIcon.innerHTML = activeGroup.icon;
   els.assetEditorTitle.textContent = activeGroup.label;
   els.assetEditorDescription.textContent = activeGroup.description;
   els.assetGroupTotal.textContent = formatMoney(totals[activeGroup.id] || 0);
