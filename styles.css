@@ -1173,7 +1173,7 @@ td {
   gap: 6px;
 }
 
-.move-category,
+.asset-drag-handle,
 .delete-row {
   display: grid;
   place-items: center;
@@ -1187,19 +1187,30 @@ td {
   font-weight: 850;
 }
 
+.asset-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.asset-drag-handle:active {
+  cursor: grabbing;
+}
+
+.asset-drag-handle svg {
+  width: 16px;
+  height: 20px;
+  fill: currentColor;
+}
+
 .delete-row {
   font-size: 18px;
   line-height: 1;
 }
 
-.move-category:hover:not(:disabled) {
+.asset-drag-handle:hover {
   border-color: var(--accent);
   color: var(--accent-strong);
-}
-
-.move-category:disabled {
-  cursor: default;
-  opacity: 0.34;
 }
 
 .delete-row:hover {
@@ -2960,6 +2971,24 @@ td {
   border-radius: 17px;
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.38);
+}
+
+.asset-entry-card.asset-entry-chosen {
+  border-color: rgba(47, 185, 146, 0.56);
+  box-shadow: 0 14px 34px rgba(31, 91, 75, 0.16);
+}
+
+.asset-entry-card.asset-entry-ghost {
+  border-color: rgba(47, 185, 146, 0.46);
+  background: rgba(75, 188, 151, 0.14);
+  opacity: 0.38;
+}
+
+.asset-entry-card.asset-entry-dragging {
+  border-color: rgba(47, 185, 146, 0.68);
+  background: var(--surface);
+  box-shadow: 0 20px 44px rgba(25, 76, 64, 0.24);
+  cursor: grabbing;
 }
 
 .asset-entry-main {
