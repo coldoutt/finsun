@@ -243,7 +243,6 @@ const els = {
   sidebarUserBtn: document.querySelector("#sidebarUserBtn"),
   sidebarUserAvatar: document.querySelector("#sidebarUserAvatar"),
   sidebarUserName: document.querySelector("#sidebarUserName"),
-  sidebarUserEmail: document.querySelector("#sidebarUserEmail"),
   profileMenu: document.querySelector("#profileMenu"),
   profileMenuCloseBtn: document.querySelector("#profileMenuCloseBtn"),
   profileMenuSubtitle: document.querySelector("#profileMenuSubtitle"),
@@ -1873,7 +1872,6 @@ function updateAccountStatus() {
     if (els.profileFirstNameInput) els.profileFirstNameInput.value = profile.firstName;
     if (els.profileLastNameInput) els.profileLastNameInput.value = profile.lastName;
     if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
-    if (els.sidebarUserEmail) els.sidebarUserEmail.textContent = authState.user.email;
     if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
     if (els.profileMenuSubtitle) els.profileMenuSubtitle.textContent = displayName;
     els.accountNote.textContent = "Изменения сохраняются в защищённом персональном хранилище Supabase.";
