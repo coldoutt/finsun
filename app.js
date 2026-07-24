@@ -249,7 +249,6 @@ const els = {
   pageKicker: document.querySelector("#pageKicker"),
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
-  todayDate: document.querySelector("#todayDate"),
   themeSelect: document.querySelector("#themeSelect"),
   addRowBtn: document.querySelector("#addRowBtn"),
   saveMonthBtn: document.querySelector("#saveMonthBtn"),
@@ -266,7 +265,6 @@ async function init() {
   fillBudgetMonthSelect();
   fillYearSelects();
   setCurrentMonth();
-  updateTodayDate();
   bindEvents();
   activeAssetGroup = getAssetGroupFromUrl();
   selectTab(getTabFromUrl(), { updateUrl: false });
@@ -321,15 +319,6 @@ function setCurrentMonth() {
   els.monthInput.value = now.getMonth();
   if (els.budgetYearInput) els.budgetYearInput.value = now.getFullYear();
   if (els.budgetMonthInput) els.budgetMonthInput.value = now.getMonth();
-}
-
-function updateTodayDate() {
-  if (!els.todayDate) return;
-  const date = new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-  }).format(new Date());
-  els.todayDate.textContent = `Сегодня ${date}`;
 }
 
 function bindEvents() {
@@ -462,7 +451,6 @@ function selectTab(name, options = {}) {
   if (els.pageKicker) els.pageKicker.textContent = copy.kicker;
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.pageSubtitle) els.pageSubtitle.textContent = copy.subtitle;
-  setTodayDateVisible(activeTab === "dashboard");
   toggleProfileMenu(false);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.tab === activeTab);
@@ -498,16 +486,6 @@ function updateAssetGroupUrl(groupId) {
   const url = new URL(window.location.href);
   url.searchParams.set("asset", groupId);
   window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
-}
-
-function setTodayDateVisible(isVisible) {
-  if (!els.todayDate) return;
-  els.todayDate.hidden = !isVisible;
-  els.todayDate.classList.remove("is-entering");
-  if (!isVisible) return;
-
-  void els.todayDate.offsetWidth;
-  els.todayDate.classList.add("is-entering");
 }
 
 function loadSelectedMonth(options = {}) {
