@@ -6,6 +6,7 @@ const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finsun/main/metrics.json";
 const OWNER_EMAIL = "tonygazz@gmail.com";
 const OWNER_HISTORY_VERSION = 1;
+const APP_TABS = ["dashboard", "budget", "assets", "history", "settings"];
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
@@ -387,6 +388,7 @@ async function init() {
   setCurrentMonth();
   updateTodayDate();
   bindEvents();
+  selectTab(getTabFromUrl(), { updateUrl: false });
   bindSupabaseAuthEvents();
   await hydrateSession();
   state = await loadState();
@@ -522,7 +524,8 @@ function bindEvents() {
   });
 }
 
-function selectTab(name) {
+function selectTab(name, options = {}) {
+  const activeTab = APP_TABS.includes(name) ? name : "dashboard";
   const pageCopy = {
     dashboard: {
       kicker: "Обзор портфеля",
@@ -550,23 +553,35 @@ function selectTab(name) {
       subtitle: "Настройте внешний вид финансового пространства под себя.",
     },
   };
-  const copy = pageCopy[name] || pageCopy.dashboard;
+  const copy = pageCopy[activeTab];
   if (els.pageKicker) els.pageKicker.textContent = copy.kicker;
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.pageSubtitle) els.pageSubtitle.textContent = copy.subtitle;
-  setTodayDateVisible(name === "dashboard");
+  setTodayDateVisible(activeTab === "dashboard");
   toggleProfileMenu(false);
   document.querySelectorAll(".tab").forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.tab === name);
+    tab.classList.toggle("is-active", tab.dataset.tab === activeTab);
   });
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.sideTab === name);
+    tab.classList.toggle("is-active", tab.dataset.sideTab === activeTab);
   });
   document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("is-visible"));
-  document.querySelector(`#${name}Panel`).classList.add("is-visible");
-  if (name === "dashboard") {
+  document.querySelector(`#${activeTab}Panel`).classList.add("is-visible");
+  if (options.updateUrl !== false) updateTabUrl(activeTab);
+  if (activeTab === "dashboard") {
     drawChart();
   }
+}
+
+function getTabFromUrl() {
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  return APP_TABS.includes(requestedTab) ? requestedTab : "dashboard";
+}
+
+function updateTabUrl(tabName) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tabName);
+  window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
 }
 
 function setTodayDateVisible(isVisible) {
