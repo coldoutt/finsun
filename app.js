@@ -164,7 +164,7 @@ let state = {
   budgets: [],
 };
 let budgetDraft = null;
-let chartMode = "bar";
+let chartRange = "all";
 let activeAssetGroup = "banks";
 let fiatCurrencyOptions = createFallbackFiatCurrencyOptions();
 let cryptoCurrencyOptions = [...DEFAULT_CRYPTO_CURRENCY_OPTIONS];
@@ -172,7 +172,6 @@ let cryptoSearchTimer = null;
 let cryptoSearchSequence = 0;
 const cryptoSearchCache = new Map();
 const pendingAssetRateRequests = new Map();
-let selectedChartYears = new Set();
 let expandedHistoryYears = new Set();
 let collapsedAssetCategories = new Set();
 let historyInitialized = false;
@@ -226,9 +225,6 @@ const els = {
   assetTotalCell: document.querySelector("#assetTotalCell"),
   historyRows: document.querySelector("#historyRows"),
   chart: document.querySelector("#totalChart"),
-  chartYearFilters: document.querySelector("#chartYearFilters"),
-  yearDropdown: document.querySelector("#yearDropdown"),
-  yearDropdownBtn: document.querySelector("#yearDropdownBtn"),
   chartTooltip: document.querySelector("#chartTooltip"),
   assetStructureRows: document.querySelector("#assetStructureRows"),
   structureTooltip: document.querySelector("#structureTooltip"),
@@ -503,24 +499,17 @@ function bindEvents() {
   els.budgetYearInput?.addEventListener("change", loadSelectedBudget);
   els.budgetMonthInput?.addEventListener("change", loadSelectedBudget);
 
-  document.querySelectorAll("[data-chart]").forEach((button) => {
+  document.querySelectorAll("[data-chart-range]").forEach((button) => {
     button.addEventListener("click", () => {
-      chartMode = button.dataset.chart;
-      document.querySelectorAll("[data-chart]").forEach((item) => item.classList.remove("is-active"));
-      button.classList.add("is-active");
+      chartRange = button.dataset.chartRange;
+      document.querySelectorAll("[data-chart-range]").forEach((item) => {
+        const isActive = item === button;
+        item.classList.toggle("is-active", isActive);
+        item.setAttribute("aria-pressed", String(isActive));
+      });
       resetChartInteraction();
       drawChart();
     });
-  });
-
-  els.yearDropdownBtn?.addEventListener("click", () => {
-    const isOpen = !els.chartYearFilters.hidden;
-    setYearDropdownOpen(!isOpen);
-  });
-
-  document.addEventListener("click", (event) => {
-    if (els.yearDropdown?.contains(event.target)) return;
-    setYearDropdownOpen(false);
   });
 
   els.chart.addEventListener("mousemove", handleChartPointerMove);
@@ -972,66 +961,8 @@ function renderAll() {
   renderBudget();
   renderHistory();
   renderMetrics();
-  renderChartFilters();
   renderAssetStructure();
   drawChart();
-}
-
-function renderChartFilters() {
-  const years = [...new Set(sortedRecords().map((record) => record.year))].sort((a, b) => b - a);
-  if (!years.length) {
-    els.chartYearFilters.innerHTML = "";
-    updateYearDropdownLabel([]);
-    return;
-  }
-
-  if (!selectedChartYears.size) {
-    years.slice(0, 3).forEach((year) => selectedChartYears.add(year));
-  }
-
-  els.chartYearFilters.innerHTML = years
-    .map(
-      (year) => `
-        <label class="year-chip">
-          <input type="checkbox" value="${year}" ${selectedChartYears.has(year) ? "checked" : ""} />
-          ${year}
-        </label>
-      `,
-    )
-    .join("");
-
-  els.chartYearFilters.querySelectorAll("input").forEach((input) => {
-    input.addEventListener("change", () => {
-      const year = Number(input.value);
-      if (input.checked) selectedChartYears.add(year);
-      else selectedChartYears.delete(year);
-      updateYearDropdownLabel(years);
-      drawChart();
-    });
-  });
-
-  updateYearDropdownLabel(years);
-}
-
-function setYearDropdownOpen(isOpen) {
-  if (!els.chartYearFilters || !els.yearDropdownBtn) return;
-  els.chartYearFilters.hidden = !isOpen;
-  els.yearDropdownBtn.setAttribute("aria-expanded", String(isOpen));
-}
-
-function updateYearDropdownLabel(years) {
-  if (!els.yearDropdownBtn) return;
-  const selected = years.filter((year) => selectedChartYears.has(year)).sort((a, b) => a - b);
-  els.yearDropdownBtn.textContent = `Период: ${formatSelectedYears(selected)}`;
-}
-
-function formatSelectedYears(years) {
-  if (!years.length) return "не выбраны";
-  if (years.length === 1) return String(years[0]);
-  const isContinuous = years.every((year, index) => index === 0 || year === years[index - 1] + 1);
-  if (isContinuous) return `${years[0]}-${years.at(-1)}`;
-  if (years.length <= 3) return years.join(", ");
-  return `${years[0]}-${years.at(-1)} · ${years.length}`;
 }
 
 function renderAssets() {
@@ -1774,7 +1705,6 @@ async function deleteHistoryRecord(key, button) {
     await persist();
     if (!state.records.some((item) => item.year === record.year)) {
       expandedHistoryYears.delete(record.year);
-      selectedChartYears.delete(record.year);
     }
     renderAll();
     showSaveNotice(`Запись за ${period} удалена`);
@@ -1868,7 +1798,7 @@ function drawChart() {
   const rect = shell.getBoundingClientRect();
   const isMobileChart = rect.width < 620;
   const width = Math.max(280, Math.floor(rect.width - (isMobileChart ? 20 : 32)));
-  const height = isMobileChart ? 280 : rect.width < 900 ? 330 : 380;
+  const height = isMobileChart ? 230 : rect.width < 900 ? 280 : 320;
   const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
@@ -1882,119 +1812,108 @@ function drawChart() {
   if (!records.length) {
     hideChartTooltip();
     ctx.fillStyle = getCssColor("--muted");
-    ctx.font = "20px Calibri, Segoe UI, sans-serif";
-    ctx.fillText("Выберите год или сохраните первый месяц.", 24, 60);
+    ctx.font = `${isMobileChart ? 15 : 17}px Inter, Calibri, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Сохраните первый месяц, чтобы увидеть динамику.", width / 2, height / 2);
     return;
   }
 
   const values = records.map((record) => record.total);
-  const axis = getAxisScale(Math.min(...values), Math.max(...values));
-  const max = axis.max;
-  const min = axis.min;
+  const valueMin = Math.min(...values);
+  const valueMax = Math.max(...values);
+  const valuePadding = Math.max((valueMax - valueMin) * 0.14, Math.abs(valueMax) * 0.025, 1);
+  const min = Math.max(0, valueMin - valuePadding);
+  const max = valueMax + valuePadding;
   const plot = isMobileChart
-    ? { left: 52, right: 12, top: 20, bottom: 54 }
-    : { left: 76, right: 24, top: 28, bottom: 72 };
+    ? { left: 8, right: 8, top: 16, bottom: 14 }
+    : { left: 12, right: 12, top: 20, bottom: 18 };
   const plotWidth = width - plot.left - plot.right;
   const plotHeight = height - plot.top - plot.bottom;
-  const slotWidth = plotWidth / Math.max(1, records.length);
-  const xStep = records.length > 1 ? slotWidth : 0;
-  const barWidth = Math.max(isMobileChart ? 5 : 8, Math.min(isMobileChart ? 24 : 38, slotWidth * 0.72));
-
-  ctx.strokeStyle = getCssColor("--line");
-  ctx.lineWidth = 1;
-  ctx.fillStyle = getCssColor("--muted");
-  ctx.font = `${isMobileChart ? 11 : 13}px Calibri, Segoe UI, sans-serif`;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-
-  for (let i = 0; i <= axis.steps; i += 1) {
-    const y = plot.top + (plotHeight / axis.steps) * i;
-    const value = max - axis.step * i;
-    ctx.beginPath();
-    ctx.moveTo(plot.left, y);
-    ctx.lineTo(width - plot.right, y);
-    ctx.stroke();
-    ctx.fillText(formatAxisCompact(value), plot.left - 12, y);
-  }
-
-  ctx.strokeStyle = getCssColor("--line-strong");
-  ctx.beginPath();
-  ctx.moveTo(plot.left, plot.top);
-  ctx.lineTo(plot.left, plot.top + plotHeight);
-  ctx.lineTo(width - plot.right, plot.top + plotHeight);
-  ctx.stroke();
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.fillStyle = getCssColor("--muted");
-  ctx.font = `${isMobileChart ? 11 : 13}px Calibri, Segoe UI, sans-serif`;
-  const labelEvery = getLabelStep(records.length, isMobileChart);
-  records.forEach((record, index) => {
-    const shouldLabel = index === 0 || index === records.length - 1 || index % labelEvery === 0 || record.month === 0;
-    if (!shouldLabel) return;
-    const x = plot.left + slotWidth / 2 + index * xStep;
-    ctx.fillText(getShortMonth(record.month), x, plot.top + plotHeight + (isMobileChart ? 9 : 12));
-    ctx.fillText(String(record.year), x, plot.top + plotHeight + (isMobileChart ? 24 : 28));
-  });
+  const xStep = records.length > 1 ? plotWidth / (records.length - 1) : 0;
 
   const points = records.map((record, index) => {
-    const x = plot.left + slotWidth / 2 + index * xStep;
+    const x = records.length > 1 ? plot.left + index * xStep : plot.left + plotWidth / 2;
     const y = plot.top + plotHeight - ((record.total - min) / (max - min)) * plotHeight;
     return { x, y, record, index };
   });
 
+  const areaGradient = ctx.createLinearGradient(0, plot.top, 0, plot.top + plotHeight);
+  areaGradient.addColorStop(0, getCssColor("--chart-area-top"));
+  areaGradient.addColorStop(1, getCssColor("--chart-area-bottom"));
+  ctx.beginPath();
+  traceChartPath(ctx, points);
+  ctx.lineTo(points.at(-1).x, plot.top + plotHeight);
+  ctx.lineTo(points[0].x, plot.top + plotHeight);
+  ctx.closePath();
+  ctx.fillStyle = areaGradient;
+  ctx.fill();
+
+  ctx.beginPath();
+  traceChartPath(ctx, points);
+  ctx.strokeStyle = getCssColor("--chart-line");
+  ctx.lineWidth = isMobileChart ? 2 : 2.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+
+  const hitHalfWidth = Math.max(16, xStep / 2);
   chartHitAreas = points.map((point) => ({
     ...point,
-    left: point.x - Math.max(barWidth / 2, 14),
-    right: point.x + Math.max(barWidth / 2, 14),
-    top: chartMode === "bar" ? point.y : point.y - 16,
+    left: point.x - hitHalfWidth,
+    right: point.x + hitHalfWidth,
+    top: plot.top,
     bottom: plot.top + plotHeight,
-    barWidth,
     plotBottom: plot.top + plotHeight,
   }));
 
   const activeIndex = chartHoverIndex ?? chartSelectedIndex;
   const activeArea = activeIndex === null ? null : chartHitAreas[activeIndex];
   if (activeArea) {
-    ctx.strokeStyle = getCssColor("--line-strong");
+    ctx.strokeStyle = getCssColor("--chart-guide");
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(activeArea.x, plot.top);
     ctx.lineTo(activeArea.x, plot.top + plotHeight);
     ctx.stroke();
-  }
 
-  if (chartMode === "bar") {
-    points.forEach((point, index) => {
-      const isActive = index === activeIndex;
-      ctx.fillStyle = isActive ? getCssColor("--accent-strong") : getCssColor("--cyan");
-      ctx.fillRect(point.x - barWidth / 2, point.y, barWidth, plot.top + plotHeight - point.y);
-    });
-  } else {
-    ctx.strokeStyle = getCssColor("--cyan");
-    ctx.lineWidth = 4;
-    ctx.lineJoin = "round";
     ctx.beginPath();
-    points.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.stroke();
-    points.forEach((point, index) => {
-      const isActive = index === activeIndex;
-      ctx.beginPath();
-      ctx.fillStyle = isActive ? getCssColor("--accent-strong") : getCssColor("--accent");
-      ctx.arc(point.x, point.y, isActive ? 6 : 4, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.fillStyle = getCssColor("--surface");
+    ctx.arc(activeArea.x, activeArea.y, isMobileChart ? 6 : 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = getCssColor("--chart-line");
+    ctx.arc(activeArea.x, activeArea.y, isMobileChart ? 3 : 3.5, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   if (activeArea) showChartTooltip(activeArea, records);
 }
 
+function traceChartPath(ctx, points) {
+  if (!points.length) return;
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const middleX = (previous.x + current.x) / 2;
+    ctx.bezierCurveTo(middleX, previous.y, middleX, current.y, current.x, current.y);
+  }
+}
+
 function getChartRecords() {
   const records = sortedRecords();
-  return records.filter((record) => selectedChartYears.has(record.year));
+  const rangeMonths = {
+    "6m": 6,
+    "1y": 12,
+    "5y": 60,
+  }[chartRange];
+  if (!rangeMonths || !records.length) return records;
+
+  const latest = records.at(-1);
+  const latestMonthIndex = latest.year * 12 + latest.month;
+  const firstMonthIndex = latestMonthIndex - rangeMonths + 1;
+  return records.filter((record) => record.year * 12 + record.month >= firstMonthIndex);
 }
 
 function handleChartPointerMove(event) {
@@ -2046,8 +1965,11 @@ function showChartTooltip(area, records) {
 
   const shellRect = els.chart.parentElement.getBoundingClientRect();
   const tooltipWidth = 168;
-  const left = Math.min(Math.max(area.x + 14, 12), shellRect.width - tooltipWidth - 12);
-  const top = Math.max(area.y - 76, 12);
+  const left = Math.min(
+    Math.max(els.chart.offsetLeft + area.x + 14, 12),
+    shellRect.width - tooltipWidth - 12,
+  );
+  const top = Math.max(els.chart.offsetTop + area.y - 76, 12);
   els.chartTooltip.style.left = `${left}px`;
   els.chartTooltip.style.top = `${top}px`;
   els.chartTooltip.hidden = false;
@@ -2118,19 +2040,6 @@ function renderAssetStructure() {
     row.addEventListener("focus", () => showStructureTooltip(row));
     row.addEventListener("blur", hideStructureTooltip);
   });
-}
-
-function getLabelStep(count, compact = false) {
-  if (compact) {
-    if (count <= 8) return 1;
-    if (count <= 24) return 3;
-    if (count <= 48) return 6;
-    return 12;
-  }
-  if (count <= 18) return 1;
-  if (count <= 36) return 3;
-  if (count <= 72) return 6;
-  return 12;
 }
 
 function getCssColor(name) {
@@ -2206,24 +2115,6 @@ function parseStructureItems(value) {
   } catch {
     return [];
   }
-}
-
-function getAxisScale(minValue, maxValue) {
-  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
-    return { min: 0, max: 1, step: 0.2, steps: 5 };
-  }
-
-  if (minValue === maxValue) {
-    const padding = Math.max(Math.abs(maxValue) * 0.2, 1);
-    minValue -= padding;
-    maxValue += padding;
-  }
-
-  const min = Math.max(0, minValue * 0.9);
-  const max = maxValue * 1.1;
-  const steps = 5;
-  const step = (max - min) / steps;
-  return { min, max, step, steps };
 }
 
 function updateAssetFieldFromInput(event) {
@@ -3552,22 +3443,6 @@ function formatPercent(value) {
 function formatSignedPercent(value) {
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toLocaleString("ru-RU", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatAxis(value) {
-  return Math.round(value).toLocaleString("ru-RU");
-}
-
-function formatAxisCompact(value) {
-  if (Math.abs(value) >= 1_000_000) {
-    const millions = value / 1_000_000;
-    const digits = Number.isInteger(millions) ? 0 : 1;
-    return `${millions.toLocaleString("ru-RU", { maximumFractionDigits: digits })} млн`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${Math.round(value / 1_000).toLocaleString("ru-RU")} тыс`;
-  }
-  return formatAxis(value);
 }
 
 function escapeHtml(value) {
