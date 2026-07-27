@@ -164,7 +164,7 @@ let state = {
   budgets: [],
 };
 let budgetDraft = null;
-let chartRange = "all";
+let chartRange = "3y";
 let activeAssetGroup = "banks";
 let fiatCurrencyOptions = createFallbackFiatCurrencyOptions();
 let cryptoCurrencyOptions = [...DEFAULT_CRYPTO_CURRENCY_OPTIONS];
@@ -1906,6 +1906,7 @@ function getChartRecords() {
   const rangeMonths = {
     "6m": 6,
     "1y": 12,
+    "3y": 36,
     "5y": 60,
   }[chartRange];
   if (!rangeMonths || !records.length) return records;
