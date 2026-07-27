@@ -348,7 +348,14 @@ async function loadFiatCurrencyOptions() {
     if (options.length) {
       fiatCurrencyOptions = options;
       const assetEditorHasFocus = els.assetRows?.contains(document.activeElement);
-      if (activeAssetGroup === "cash" && !assetEditorHasFocus) renderAssets();
+      const activeFiatInput = document.activeElement?.matches?.("[data-fiat-query]")
+        ? document.activeElement
+        : null;
+      if (activeFiatInput) {
+        renderFiatSearchResults(Number(activeFiatInput.dataset.fiatQuery), activeFiatInput.value);
+      } else if (activeAssetGroup === "cash" && !assetEditorHasFocus) {
+        renderAssets();
+      }
     }
   } catch (error) {
     console.warn("Frankfurter currency list is unavailable", error);
@@ -1053,6 +1060,7 @@ function renderAssets() {
   });
 
   bindCryptoAssetSearchEvents();
+  bindFiatAssetSearchEvents();
 
   els.assetRows.querySelectorAll("[data-asset-delete]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1166,16 +1174,40 @@ function renderAssetCodeField(row, index) {
   const isCrypto = row.group === "crypto";
   const isRuble = row.group === "cash" && row.type === "cash";
   if (isCrypto) return renderCryptoAssetCodeField(row, index);
+  if (!isRuble) return renderFiatAssetCodeField(row, index);
 
-  const options = isRuble ? [RUBLE_CURRENCY_OPTION] : getFiatOptionsForRow(row);
   return `
     <label class="asset-field asset-field-code">
       Валюта
-      <select data-asset-field="currencyCode" data-index="${index}" ${isRuble ? "disabled aria-disabled=\"true\"" : ""}>
-        ${options
+      <select data-asset-field="currencyCode" data-index="${index}" disabled aria-disabled="true">
+        ${[RUBLE_CURRENCY_OPTION]
           .map(({ code, label }) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${label}</option>`)
           .join("")}
       </select>
+    </label>
+  `;
+}
+
+function renderFiatAssetCodeField(row, index) {
+  const option = getFiatOptionForRow(row);
+  const value = option?.label || row.name || row.currencyCode || "";
+  return `
+    <label class="asset-field asset-field-code">
+      Валюта
+      <div class="asset-search-select">
+        <input
+          type="search"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="fiatResults${index}"
+          autocomplete="off"
+          data-fiat-query="${index}"
+          value="${escapeHtml(value)}"
+          placeholder="Начните вводить USD или доллар"
+        />
+        <div class="asset-search-results" id="fiatResults${index}" data-fiat-results="${index}" role="listbox" hidden></div>
+      </div>
     </label>
   `;
 }
@@ -1214,6 +1246,11 @@ function getFiatOptionsForRow(row) {
     { code: selectedCode, label: `${selectedCode} — ${getStoredAssetLabel(row, selectedCode)}` },
     ...fiatCurrencyOptions,
   ];
+}
+
+function getFiatOptionForRow(row) {
+  const code = String(row?.currencyCode || "").trim().toUpperCase();
+  return getFiatOptionsForRow(row).find((option) => option.code === code) || null;
 }
 
 function getCryptoOptionForRow(row) {
@@ -1271,6 +1308,92 @@ function bindCryptoAssetSearchEvents() {
       }, 160);
     });
   });
+}
+
+function bindFiatAssetSearchEvents() {
+  els.assetRows.querySelectorAll("[data-fiat-query]").forEach((input) => {
+    const index = Number(input.dataset.fiatQuery);
+    input.addEventListener("focus", () => {
+      input.select();
+      renderFiatSearchResults(index, "");
+    });
+    input.addEventListener("input", () => {
+      renderFiatSearchResults(index, input.value);
+    });
+    input.addEventListener("keydown", (event) => {
+      const results = els.assetRows.querySelector(`[data-fiat-results="${index}"]`);
+      if (event.key === "Escape") {
+        hideFiatSearchResults(index);
+        input.blur();
+      } else if (event.key === "Enter") {
+        const firstResult = results?.querySelector("[data-fiat-option]");
+        if (firstResult) {
+          event.preventDefault();
+          firstResult.click();
+        }
+      }
+    });
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        hideFiatSearchResults(index);
+        const row = state.currentRows[index];
+        if (row) input.value = getFiatOptionForRow(row)?.label || row.name || "";
+      }, 160);
+    });
+  });
+}
+
+function renderFiatSearchResults(index, query) {
+  const input = els.assetRows.querySelector(`[data-fiat-query="${index}"]`);
+  const container = els.assetRows.querySelector(`[data-fiat-results="${index}"]`);
+  const row = state.currentRows[index];
+  if (!input || !container || !row) return;
+
+  const normalizedQuery = normalizeSearchText(query);
+  const options = getFiatOptionsForRow(row)
+    .filter((option) => !normalizedQuery || normalizeSearchText(`${option.code} ${option.label}`).includes(normalizedQuery));
+
+  container.innerHTML = options.length
+    ? options
+        .map((option) => `
+          <button type="button" role="option" data-fiat-option="${escapeHtml(option.code)}">
+            <strong>${escapeHtml(option.code)}</strong>
+            <span>${escapeHtml(option.label.replace(`${option.code} — `, ""))}</span>
+          </button>
+        `)
+        .join("")
+    : '<span class="asset-search-empty">Совпадений пока нет</span>';
+  container.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+
+  container.querySelectorAll("[data-fiat-option]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => selectFiatAsset(index, button.dataset.fiatOption));
+  });
+}
+
+function hideFiatSearchResults(index) {
+  const input = els.assetRows.querySelector(`[data-fiat-query="${index}"]`);
+  const container = els.assetRows.querySelector(`[data-fiat-results="${index}"]`);
+  if (container) container.hidden = true;
+  if (input) input.setAttribute("aria-expanded", "false");
+}
+
+function selectFiatAsset(index, currencyCode) {
+  const row = state.currentRows[index];
+  const option = getFiatOptionsForRow(row).find(({ code }) => code === currencyCode);
+  if (!row || !option) return;
+
+  row.currencyCode = option.code;
+  row.marketId = "";
+  row.name = option.label;
+  row.unitRate = 0;
+  row.rateSource = "Frankfurter";
+  row.rateUpdatedAt = "";
+  row.conversionConfigured = Number(row.units || 0) > 0;
+  recalculateAssetAmount(row);
+  renderAssets();
+  void loadLatestFiatRate(row.id, option.code);
 }
 
 function renderCryptoSearchResults(index, query) {
