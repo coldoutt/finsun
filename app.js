@@ -124,10 +124,18 @@ const ASSET_GROUPS = [
 ];
 
 const DEFAULT_FIAT_CURRENCY_OPTIONS = [
-  { code: "USD", label: "USD — доллар" },
+  { code: "USD", label: "USD — доллар США" },
   { code: "EUR", label: "EUR — евро" },
+  { code: "JPY", label: "JPY — японская иена" },
+  { code: "GBP", label: "GBP — британский фунт" },
+  { code: "CNY", label: "CNY — китайский юань" },
+  { code: "CHF", label: "CHF — швейцарский франк" },
+  { code: "AUD", label: "AUD — австралийский доллар" },
+  { code: "CAD", label: "CAD — канадский доллар" },
   { code: "HKD", label: "HKD — гонконгский доллар" },
+  { code: "SGD", label: "SGD — сингапурский доллар" },
 ];
+const PREFERRED_FIAT_CURRENCY_CODES = ["USD", "EUR", "JPY", "GBP", "CNY", "CHF", "AUD", "CAD", "HKD", "SGD"];
 const RUBLE_CURRENCY_OPTION = { code: "RUB", label: "RUB — рубль" };
 const DEFAULT_CRYPTO_CURRENCY_OPTIONS = [
   { id: "btc-bitcoin", code: "BTC", name: "биткоин", label: "BTC — биткоин", rank: 1 },
@@ -374,9 +382,8 @@ function getLocalizedCurrencyName(code, fallbackName = "") {
 }
 
 function compareFiatCurrencyOptions(left, right) {
-  const preferred = ["USD", "EUR", "HKD"];
-  const leftIndex = preferred.indexOf(left.code);
-  const rightIndex = preferred.indexOf(right.code);
+  const leftIndex = PREFERRED_FIAT_CURRENCY_CODES.indexOf(left.code);
+  const rightIndex = PREFERRED_FIAT_CURRENCY_CODES.indexOf(right.code);
   if (leftIndex >= 0 || rightIndex >= 0) {
     if (leftIndex < 0) return 1;
     if (rightIndex < 0) return -1;
