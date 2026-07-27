@@ -4522,3 +4522,168 @@ select:disabled {
 body[data-theme="dark"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23c6d7d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
 }
+
+/* Unified liquid-glass navigation */
+.side-nav {
+  --nav-indicator-x: 0px;
+  --nav-indicator-y: 0px;
+  --nav-indicator-width: 100%;
+  --nav-indicator-height: 66px;
+  position: relative;
+  isolation: isolate;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(224, 242, 241, 0.3)),
+    rgba(239, 249, 249, 0.42);
+  box-shadow:
+    0 16px 36px rgba(37, 78, 75, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(73, 132, 123, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+}
+
+.side-nav::after {
+  position: absolute;
+  z-index: -1;
+  top: 1px;
+  right: 12px;
+  left: 12px;
+  height: 36%;
+  border-radius: 20px 20px 50% 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.side-nav-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: 0;
+  width: var(--nav-indicator-width);
+  height: var(--nav-indicator-height);
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 24% 10%, rgba(255, 255, 255, 0.86), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(217, 239, 237, 0.42));
+  box-shadow:
+    0 10px 24px rgba(30, 75, 70, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    inset 0 -1px 0 rgba(58, 123, 111, 0.1);
+  opacity: 0;
+  transform: translate3d(var(--nav-indicator-x), var(--nav-indicator-y), 0);
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 280ms ease,
+    height 280ms ease,
+    opacity 180ms ease;
+  pointer-events: none;
+}
+
+.side-nav.has-indicator .side-nav-indicator {
+  opacity: 1;
+}
+
+.side-nav.is-positioning .side-nav-indicator {
+  transition: none;
+}
+
+.side-nav-item {
+  position: relative;
+  z-index: 1;
+  border-color: transparent;
+  background: transparent;
+}
+
+.side-nav-item:hover {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.side-nav-item.is-active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.side-nav-item.is-active .side-icon {
+  filter: drop-shadow(0 3px 7px rgba(21, 131, 98, 0.18));
+}
+
+body[data-theme="dark"] .side-nav {
+  border-color: rgba(218, 248, 239, 0.15);
+  background:
+    linear-gradient(145deg, rgba(49, 79, 72, 0.58), rgba(20, 43, 39, 0.42)),
+    rgba(17, 38, 34, 0.56);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(226, 255, 246, 0.14);
+}
+
+body[data-theme="dark"] .side-nav-indicator {
+  border-color: rgba(218, 255, 243, 0.2);
+  background:
+    radial-gradient(circle at 24% 10%, rgba(170, 233, 213, 0.18), transparent 44%),
+    linear-gradient(145deg, rgba(57, 91, 82, 0.82), rgba(27, 56, 49, 0.68));
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(230, 255, 248, 0.18);
+}
+
+@media (max-width: 900px) {
+  .side-nav {
+    position: fixed;
+    z-index: 70;
+    right: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 50%;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(560px, calc(100vw - 20px));
+    gap: 4px;
+    padding: 6px;
+    border-radius: 24px;
+    transform: translateX(-50%);
+  }
+
+  .side-nav-item {
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    min-height: 52px;
+    padding: 5px 3px;
+    border-radius: 17px;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .side-nav-item .side-icon {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+  }
+
+  .main-content {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .side-nav {
+    background: rgba(239, 249, 249, 0.96);
+  }
+
+  body[data-theme="dark"] .side-nav {
+    background: rgba(20, 43, 39, 0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .side-nav-indicator {
+    transition: none;
+  }
+}

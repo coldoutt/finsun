@@ -520,6 +520,7 @@ function bindEvents() {
   });
   els.chart.addEventListener("click", handleChartClick);
   window.addEventListener("resize", () => {
+    updateSideNavIndicator({ instant: true });
     resetChartInteraction();
     hideStructureTooltip();
     drawChart();
@@ -567,12 +568,33 @@ function selectTab(name, options = {}) {
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.sideTab === activeTab);
   });
+  updateSideNavIndicator({ instant: options.updateUrl === false });
   document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("is-visible"));
   document.querySelector(`#${activeTab}Panel`).classList.add("is-visible");
   if (options.updateUrl !== false) updateTabUrl(activeTab);
   if (activeTab === "dashboard") {
     drawChart();
   }
+}
+
+function updateSideNavIndicator({ instant = false } = {}) {
+  const nav = document.querySelector(".side-nav");
+  const activeItem = nav?.querySelector(".side-nav-item.is-active");
+  if (!nav || !activeItem) return;
+
+  window.requestAnimationFrame(() => {
+    const navRect = nav.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+    if (instant) nav.classList.add("is-positioning");
+    nav.style.setProperty("--nav-indicator-x", `${itemRect.left - navRect.left}px`);
+    nav.style.setProperty("--nav-indicator-y", `${itemRect.top - navRect.top}px`);
+    nav.style.setProperty("--nav-indicator-width", `${itemRect.width}px`);
+    nav.style.setProperty("--nav-indicator-height", `${itemRect.height}px`);
+    nav.classList.add("has-indicator");
+    if (instant) {
+      window.requestAnimationFrame(() => nav.classList.remove("is-positioning"));
+    }
+  });
 }
 
 function getTabFromUrl() {
