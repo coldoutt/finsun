@@ -58,11 +58,8 @@ const ASSET_GROUPS = [
     label: "Наличные",
     icon: "₽",
     description: "Наличные рубли и иностранные валюты с автоматическим курсом к рублю.",
-    defaultType: "cash",
-    types: [
-      ["cash", "Рубль"],
-      ["currency", "Иностранная валюта"],
-    ],
+    defaultType: "currency",
+    types: [["currency", "Валюта"]],
   },
   {
     id: "crypto",
@@ -135,8 +132,19 @@ const DEFAULT_FIAT_CURRENCY_OPTIONS = [
   { code: "HKD", label: "HKD — гонконгский доллар" },
   { code: "SGD", label: "SGD — сингапурский доллар" },
 ];
-const PREFERRED_FIAT_CURRENCY_CODES = ["USD", "EUR", "JPY", "GBP", "CNY", "CHF", "AUD", "CAD", "HKD", "SGD"];
-const RUBLE_CURRENCY_OPTION = { code: "RUB", label: "RUB — рубль" };
+const PREFERRED_FIAT_CURRENCY_CODES = ["RUB", "USD", "EUR", "JPY", "GBP", "CNY", "CHF", "AUD", "CAD", "HKD", "SGD"];
+const FALLBACK_FIAT_CURRENCY_CODES = `
+  AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BHD BIF BMD BND BOB BRL BSD
+  BTN BWP BYN BZD CAD CDF CHF CLP CNH CNY COP CRC CUP CVE CZK DJF DKK DOP DZD EGP
+  ERN ETB EUR FJD FKP GBP GEL GGP GHS GIP GMD GNF GTQ GYD HKD HNL HTG HUF IDR ILS
+  IMP INR IQD IRR ISK JEP JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP
+  LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRO MRU MUR MVR MWK MXN MYR MZN NAD
+  NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RWF SAR SBD SCR
+  SDG SEK SGD SHP SLE SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD
+  TZS UAH UGX USD UYU UZS VES VND VUV WST XAF XAG XAU XCD XCG XDR XOF XPD XPF XPT
+  YER ZAR ZMW ZWG
+`.trim().split(/\s+/);
+const RUBLE_CURRENCY_OPTION = { code: "RUB", label: "RUB — российский рубль" };
 const DEFAULT_CRYPTO_CURRENCY_OPTIONS = [
   { id: "btc-bitcoin", code: "BTC", name: "биткоин", label: "BTC — биткоин", rank: 1 },
   { id: "eth-ethereum", code: "ETH", name: "эфириум", label: "ETH — эфириум", rank: 2 },
@@ -158,7 +166,7 @@ let state = {
 let budgetDraft = null;
 let chartMode = "bar";
 let activeAssetGroup = "banks";
-let fiatCurrencyOptions = [...DEFAULT_FIAT_CURRENCY_OPTIONS];
+let fiatCurrencyOptions = createFallbackFiatCurrencyOptions();
 let cryptoCurrencyOptions = [...DEFAULT_CRYPTO_CURRENCY_OPTIONS];
 let cryptoSearchTimer = null;
 let cryptoSearchSequence = 0;
@@ -346,7 +354,7 @@ async function loadFiatCurrencyOptions() {
     const options = currencies
       .map((currency) => {
         const code = String(currency?.iso_code || "").trim().toUpperCase();
-        if (!/^[A-Z]{3}$/.test(code) || code === "RUB") return null;
+        if (!/^[A-Z]{3}$/.test(code)) return null;
         const name = getLocalizedCurrencyName(code, currency?.name);
         return { code, label: `${code} — ${name}` };
       })
@@ -379,6 +387,32 @@ function getLocalizedCurrencyName(code, fallbackName = "") {
     // Older browsers can use the provider's English name.
   }
   return String(fallbackName || code).trim();
+}
+
+function createFallbackFiatCurrencyOptions() {
+  const optionsByCode = new Map(
+    [...DEFAULT_FIAT_CURRENCY_OPTIONS, RUBLE_CURRENCY_OPTION]
+      .map((option) => [option.code, option]),
+  );
+  const browserSupportedCodes = typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("currency")
+    : [];
+  const supportedCodes = new Set([
+    ...FALLBACK_FIAT_CURRENCY_CODES,
+    ...browserSupportedCodes,
+  ]);
+
+  supportedCodes.forEach((code) => {
+    const normalizedCode = String(code || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalizedCode)) return;
+    const name = getLocalizedCurrencyName(normalizedCode);
+    optionsByCode.set(normalizedCode, {
+      code: normalizedCode,
+      label: `${normalizedCode} — ${name}`,
+    });
+  });
+
+  return Array.from(optionsByCode.values()).sort(compareFiatCurrencyOptions);
 }
 
 function compareFiatCurrencyOptions(left, right) {
@@ -1164,35 +1198,26 @@ function renderAssetSpecificFields(row, index) {
 }
 
 function getAssetSpecificFieldCount(row) {
-  if (isConvertibleAsset(row.group, row.type)) return 2;
+  if (isConvertibleAsset(row.group, row.type)) {
+    return row.group === "cash" && row.currencyCode === "RUB" ? 1 : 2;
+  }
   if (row.group === "property") return 1;
   return 0;
 }
 
 function renderAssetConversionFields(row, index) {
   const rateLabel = row.group === "crypto" ? "Цена за единицу, ₽" : "Курс к рублю";
+  const showRate = row.group !== "cash" || row.currencyCode !== "RUB";
   return `
     ${renderAssetNumberField("Количество", "units", row.units, index, "decimal")}
-    ${renderAssetNumberField(rateLabel, "unitRate", row.unitRate, index, "decimal")}
+    ${showRate ? renderAssetNumberField(rateLabel, "unitRate", row.unitRate, index, "decimal") : ""}
   `;
 }
 
 function renderAssetCodeField(row, index) {
   const isCrypto = row.group === "crypto";
-  const isRuble = row.group === "cash" && row.type === "cash";
   if (isCrypto) return renderCryptoAssetCodeField(row, index);
-  if (!isRuble) return renderFiatAssetCodeField(row, index);
-
-  return `
-    <label class="asset-field asset-field-code">
-      Валюта
-      <select data-asset-field="currencyCode" data-index="${index}" disabled aria-disabled="true">
-        ${[RUBLE_CURRENCY_OPTION]
-          .map(({ code, label }) => `<option value="${code}" ${row.currencyCode === code ? "selected" : ""}>${label}</option>`)
-          .join("")}
-      </select>
-    </label>
-  `;
+  return renderFiatAssetCodeField(row, index);
 }
 
 function renderFiatAssetCodeField(row, index) {
@@ -1245,18 +1270,16 @@ function renderCryptoAssetCodeField(row, index) {
 
 function getFiatOptionsForRow(row) {
   const selectedCode = String(row?.currencyCode || "").trim().toUpperCase();
-  const foreignCurrencyOptions = fiatCurrencyOptions.filter(({ code }) => code !== "RUB");
   if (
     !selectedCode
-    || selectedCode === "RUB"
-    || foreignCurrencyOptions.some(({ code }) => code === selectedCode)
+    || fiatCurrencyOptions.some(({ code }) => code === selectedCode)
   ) {
-    return foreignCurrencyOptions;
+    return fiatCurrencyOptions;
   }
 
   return [
     { code: selectedCode, label: `${selectedCode} — ${getStoredAssetLabel(row, selectedCode)}` },
-    ...foreignCurrencyOptions,
+    ...fiatCurrencyOptions,
   ];
 }
 
@@ -1396,16 +1419,18 @@ function selectFiatAsset(index, currencyCode) {
   const option = getFiatOptionsForRow(row).find(({ code }) => code === currencyCode);
   if (!row || !option) return;
 
+  const isRuble = option.code === "RUB";
+  row.type = "currency";
   row.currencyCode = option.code;
   row.marketId = "";
   row.name = option.label;
-  row.unitRate = 0;
-  row.rateSource = "Frankfurter";
+  row.unitRate = isRuble ? 1 : 0;
+  row.rateSource = isRuble ? "" : "Frankfurter";
   row.rateUpdatedAt = "";
-  row.conversionConfigured = Number(row.units || 0) > 0;
+  row.conversionConfigured = true;
   recalculateAssetAmount(row);
   renderAssets();
-  void loadLatestFiatRate(row.id, option.code);
+  if (!isRuble) void loadLatestFiatRate(row.id, option.code);
 }
 
 function renderCryptoSearchResults(index, query) {
@@ -1565,6 +1590,7 @@ async function loadLatestCryptoRate(rowId, option) {
 }
 
 async function loadLatestFiatRate(rowId, currencyCode) {
+  if (currencyCode === "RUB") return;
   const token = beginAssetRateRequest(rowId);
   setAssetRateLoading(rowId, true);
   try {
@@ -2220,15 +2246,16 @@ function updateAssetFieldFromInput(event) {
   }
 
   if (field === "currencyCode" && previousValue !== row.currencyCode) {
+    const isRuble = row.group === "cash" && row.currencyCode === "RUB";
     row.marketId = "";
     row.name = getAutomaticAssetName(row.group, row.type, row.currencyCode, row.marketId) || row.name;
-    row.unitRate = 0;
-    row.rateSource = "Frankfurter";
+    row.unitRate = isRuble ? 1 : 0;
+    row.rateSource = isRuble ? "" : "Frankfurter";
     row.rateUpdatedAt = "";
-    row.conversionConfigured = Number(row.units || 0) > 0;
+    row.conversionConfigured = true;
     recalculateAssetAmount(row);
     updateAssetRateUi(index, row);
-    if (row.group === "cash" && row.type === "currency") {
+    if (row.group === "cash" && !isRuble) {
       void loadLatestFiatRate(row.id, row.currencyCode);
     }
   }
@@ -2266,16 +2293,18 @@ function changeAssetType(event) {
 
   row.type = event.target.value;
   if (isConvertibleAsset(row.group, row.type)) {
+    const isCash = row.group === "cash";
     row.currencyCode = row.group === "crypto"
       ? (isCryptoCurrencyCode(row.currencyCode) ? row.currencyCode : "BTC")
-      : (isFiatCurrencyCode(row.currencyCode) && row.currencyCode !== "RUB" ? row.currencyCode : "USD");
+      : (isFiatCurrencyCode(row.currencyCode) ? row.currencyCode : "RUB");
+    const isRuble = isCash && row.currencyCode === "RUB";
     row.marketId = row.group === "crypto" ? getCryptoOptionForRow(row)?.id || "btc-bitcoin" : "";
     row.units = Number(row.units || 0);
-    row.unitRate = 0;
-    row.rateSource = row.group === "crypto" ? "CoinPaprika" : "Frankfurter";
+    row.unitRate = isRuble ? 1 : 0;
+    row.rateSource = row.group === "crypto" ? "CoinPaprika" : (isRuble ? "" : "Frankfurter");
     row.rateUpdatedAt = "";
     row.name = getAutomaticAssetName(row.group, row.type, row.currencyCode, row.marketId);
-    row.conversionConfigured = Number(row.units || 0) > 0;
+    row.conversionConfigured = isCash || Number(row.units || 0) > 0;
     recalculateAssetAmount(row);
   } else if (row.group === "cash") {
     row.currencyCode = "RUB";
@@ -2379,7 +2408,7 @@ function addAssetRow() {
   state.currentRows.push(row);
   renderAssets();
   els.assetRows.querySelector(
-    ".asset-entry-card:last-child [data-asset-field='name'], .asset-entry-card:last-child [data-asset-field='currencyCode'], .asset-entry-card:last-child [data-crypto-query]",
+    ".asset-entry-card:last-child [data-asset-field='name'], .asset-entry-card:last-child [data-fiat-query], .asset-entry-card:last-child [data-crypto-query]",
   )?.focus();
   if (row.group === "crypto") {
     const option = getCryptoOptionForRow(row);
@@ -3098,15 +3127,24 @@ function normalizeRecordState(record) {
 function normalizeRowState(row, index = 0) {
   const group = inferAssetGroup(row);
   const type = inferAssetType(group, row);
-  const conversionConfigured = row?.conversionConfigured === true
-    || (Number(row?.units || 0) !== 0 && Number(row?.unitRate || 0) !== 0);
-  const units = Number.isFinite(Number(row?.units)) ? Number(row.units) : 0;
-  const unitRate = Number.isFinite(Number(row?.unitRate)) ? Number(row.unitRate) : 0;
   const storedAmount = Number.isFinite(Number(row?.amount)) ? Math.round(Number(row.amount)) : 0;
+  const currencyCode = inferAssetCurrencyCode(group.id, type, row);
+  const storedUnits = Number.isFinite(Number(row?.units)) ? Number(row.units) : 0;
+  const isRubleCash = group.id === "cash" && currencyCode === "RUB";
+  const isLegacyRubleAmount = isRubleCash
+    && row?.type === "cash"
+    && storedUnits === 0
+    && storedAmount !== 0;
+  const units = isLegacyRubleAmount ? storedAmount : storedUnits;
+  const unitRate = isRubleCash
+    ? 1
+    : (Number.isFinite(Number(row?.unitRate)) ? Number(row.unitRate) : 0);
+  const conversionConfigured = isRubleCash
+    || row?.conversionConfigured === true
+    || (units !== 0 && unitRate !== 0);
   const amount = isConvertibleAsset(group.id, type) && conversionConfigured
     ? Math.round(units * unitRate)
     : storedAmount;
-  const currencyCode = inferAssetCurrencyCode(group.id, type, row);
   const marketId = group.id === "crypto"
     ? String(row?.marketId || findCryptoOptionByCode(currencyCode)?.id || "").trim()
     : "";
@@ -3124,8 +3162,8 @@ function normalizeRowState(row, index = 0) {
     units,
     unitRate,
     conversionConfigured,
-    rateSource: String(row?.rateSource || "").trim(),
-    rateUpdatedAt: String(row?.rateUpdatedAt || "").trim(),
+    rateSource: isRubleCash ? "" : String(row?.rateSource || "").trim(),
+    rateUpdatedAt: isRubleCash ? "" : String(row?.rateUpdatedAt || "").trim(),
     annualRate: Number.isFinite(Number(row?.annualRate)) ? Number(row.annualRate) : 0,
     openedAt: normalizeAssetDate(row?.openedAt),
     closesAt: normalizeAssetDate(row?.closesAt),
@@ -3193,8 +3231,7 @@ function inferAssetType(group, row) {
     return "account";
   }
   if (group.id === "cash") {
-    const currencyCode = inferLegacyAssetCurrencyCode(row, text);
-    return currencyCode && currencyCode !== "RUB" ? "currency" : "cash";
+    return "currency";
   }
   if (group.id === "crypto") return "crypto";
   if (group.id === "investments") {
@@ -3218,16 +3255,17 @@ function inferAssetCurrencyCode(groupId, type, row) {
     const name = String(row?.name || "").trim().toUpperCase();
     return cryptoCurrencyOptions.find(({ code }) => name.includes(code))?.code || "BTC";
   }
-  if (groupId !== "cash" || type === "cash") return "RUB";
+  if (groupId !== "cash") return "RUB";
 
   const stored = String(row?.currencyCode || "").trim().toUpperCase();
-  if (isFiatCurrencyCode(stored) && stored !== "RUB") return stored;
+  if (isFiatCurrencyCode(stored)) return stored;
 
   const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
+  if (text.includes("рубл")) return "RUB";
   if (text.includes("гонконг")) return "HKD";
   if (text.includes("доллар")) return "USD";
   if (text.includes("евро")) return "EUR";
-  return fiatCurrencyOptions.find(({ code }) => text.includes(code.toLowerCase()))?.code || "USD";
+  return fiatCurrencyOptions.find(({ code }) => text.includes(code.toLowerCase()))?.code || "RUB";
 }
 
 function usesAutomaticAssetName(groupId, type) {
@@ -3235,13 +3273,12 @@ function usesAutomaticAssetName(groupId, type) {
 }
 
 function getAutomaticAssetName(groupId, type, currencyCode, marketId = "", storedName = "") {
-  if (groupId === "cash" && type === "cash") return "Рубль";
   if (groupId === "crypto") {
     return cryptoCurrencyOptions.find((option) => marketId && option.id === marketId)?.label
       || findCryptoOptionByCode(currencyCode)?.label
       || String(storedName || "").trim();
   }
-  if (groupId === "cash" && type === "currency") {
+  if (groupId === "cash") {
     return fiatCurrencyOptions.find(({ code }) => code === currencyCode)?.label
       || String(storedName || "").trim();
   }
@@ -3287,7 +3324,7 @@ function isCryptoAssetRow(row, text = "") {
 }
 
 function isConvertibleAsset(groupId, type) {
-  return groupId === "crypto" || (groupId === "cash" && type === "currency");
+  return groupId === "crypto" || groupId === "cash";
 }
 
 function normalizeAssetDate(value) {
@@ -3432,7 +3469,10 @@ function formatAssetCount(count) {
 }
 
 function recalculateAssetAmount(row) {
-  row.amount = Math.round(Number(row.units || 0) * Number(row.unitRate || 0));
+  const unitRate = row.group === "cash" && row.currencyCode === "RUB"
+    ? 1
+    : Number(row.unitRate || 0);
+  row.amount = Math.round(Number(row.units || 0) * unitRate);
 }
 
 function recordKey(year, month) {
