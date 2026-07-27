@@ -4540,7 +4540,7 @@ body[data-theme="dark"] select {
   height: auto;
   min-height: 82px;
   border-right: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
   padding: 12px 280px 12px 20px;
   background: color-mix(in srgb, var(--sidebar), transparent 5%);
   overflow: visible;
@@ -4550,12 +4550,53 @@ body[data-theme="dark"] select {
 
 .sidebar-brand {
   width: 150px;
-  padding: 0;
+  height: 60px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(224, 242, 241, 0.3)),
+    rgba(239, 249, 249, 0.42);
+  box-shadow:
+    0 16px 36px rgba(37, 78, 75, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(73, 132, 123, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
 }
 
 .sidebar-account {
-  top: 17px;
+  top: 12px;
   right: 28px;
+}
+
+.sidebar-login,
+.sidebar-user {
+  min-height: 60px;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 24px;
+  padding: 6px 9px 6px 14px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(224, 242, 241, 0.3)),
+    rgba(239, 249, 249, 0.42);
+  box-shadow:
+    0 16px 36px rgba(37, 78, 75, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(73, 132, 123, 0.08);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+}
+
+.sidebar-login:hover,
+.sidebar-user:hover {
+  border-color: rgba(255, 255, 255, 0.82);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(224, 242, 241, 0.38)),
+    rgba(239, 249, 249, 0.52);
+  box-shadow:
+    0 18px 40px rgba(37, 78, 75, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  transform: translateY(-1px);
 }
 
 .main-content {
@@ -4686,6 +4727,18 @@ body[data-theme="dark"] .side-nav-indicator {
     inset 0 1px 0 rgba(230, 255, 248, 0.18);
 }
 
+body[data-theme="dark"] .sidebar-brand,
+body[data-theme="dark"] .sidebar-login,
+body[data-theme="dark"] .sidebar-user {
+  border-color: rgba(218, 248, 239, 0.15);
+  background:
+    linear-gradient(145deg, rgba(49, 79, 72, 0.58), rgba(20, 43, 39, 0.42)),
+    rgba(17, 38, 34, 0.56);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(226, 255, 246, 0.14);
+}
+
 @media (max-width: 900px) {
   .sidebar {
     position: sticky;
@@ -4701,12 +4754,14 @@ body[data-theme="dark"] .side-nav-indicator {
     min-height: 132px;
     gap: 8px;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 0;
     padding: 10px 14px 12px;
   }
 
   .sidebar-brand {
     grid-area: brand;
+    width: auto;
+    min-width: 60px;
   }
 
   .side-nav {
@@ -4753,6 +4808,26 @@ body[data-theme="dark"] .side-nav-indicator {
     min-height: 120px;
     gap: 7px;
     padding: 9px 10px 10px;
+  }
+
+  .sidebar-brand {
+    width: 60px;
+    height: 54px;
+    padding: 5px;
+  }
+
+  .sidebar-brand .brand-wordmark {
+    display: none;
+  }
+
+  .sidebar-account {
+    top: 9px;
+  }
+
+  .sidebar-login,
+  .sidebar-user {
+    min-height: 54px;
+    padding: 5px;
   }
 
   .side-nav {
