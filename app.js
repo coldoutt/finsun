@@ -62,7 +62,7 @@ const ASSET_GROUPS = [
   },
   {
     id: "crypto",
-    label: "Криптовалюта",
+    label: "Крипта",
     icon: "₿",
     description: "Криптовалюты с расчетом стоимости по количеству монет и цене в рублях.",
     defaultType: "crypto",
@@ -70,7 +70,7 @@ const ASSET_GROUPS = [
   },
   {
     id: "investments",
-    label: "Инвестиции",
+    label: "Биржа",
     icon: `
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="m5 17 5-5 3 3 6-7" />
@@ -86,7 +86,7 @@ const ASSET_GROUPS = [
   },
   {
     id: "property",
-    label: "Недвижимость",
+    label: "Имущество",
     icon: `
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="m4 11 8-7 8 7" />
