@@ -1238,13 +1238,18 @@ function renderCryptoAssetCodeField(row, index) {
 
 function getFiatOptionsForRow(row) {
   const selectedCode = String(row?.currencyCode || "").trim().toUpperCase();
-  if (!selectedCode || fiatCurrencyOptions.some(({ code }) => code === selectedCode)) {
-    return fiatCurrencyOptions;
+  const foreignCurrencyOptions = fiatCurrencyOptions.filter(({ code }) => code !== "RUB");
+  if (
+    !selectedCode
+    || selectedCode === "RUB"
+    || foreignCurrencyOptions.some(({ code }) => code === selectedCode)
+  ) {
+    return foreignCurrencyOptions;
   }
 
   return [
     { code: selectedCode, label: `${selectedCode} — ${getStoredAssetLabel(row, selectedCode)}` },
-    ...fiatCurrencyOptions,
+    ...foreignCurrencyOptions,
   ];
 }
 
@@ -2256,7 +2261,7 @@ function changeAssetType(event) {
   if (isConvertibleAsset(row.group, row.type)) {
     row.currencyCode = row.group === "crypto"
       ? (isCryptoCurrencyCode(row.currencyCode) ? row.currencyCode : "BTC")
-      : (isFiatCurrencyCode(row.currencyCode) ? row.currencyCode : "USD");
+      : (isFiatCurrencyCode(row.currencyCode) && row.currencyCode !== "RUB" ? row.currencyCode : "USD");
     row.marketId = row.group === "crypto" ? getCryptoOptionForRow(row)?.id || "btc-bitcoin" : "";
     row.units = Number(row.units || 0);
     row.unitRate = 0;
@@ -3209,7 +3214,7 @@ function inferAssetCurrencyCode(groupId, type, row) {
   if (groupId !== "cash" || type === "cash") return "RUB";
 
   const stored = String(row?.currencyCode || "").trim().toUpperCase();
-  if (isFiatCurrencyCode(stored)) return stored;
+  if (isFiatCurrencyCode(stored) && stored !== "RUB") return stored;
 
   const text = `${row?.category || ""} ${row?.name || ""}`.toLowerCase();
   if (text.includes("гонконг")) return "HKD";
