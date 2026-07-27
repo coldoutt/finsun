@@ -580,7 +580,11 @@ function selectTab(name, options = {}) {
 function updateSideNavIndicator({ instant = false } = {}) {
   const nav = document.querySelector(".side-nav");
   const activeItem = nav?.querySelector(".side-nav-item.is-active");
-  if (!nav || !activeItem) return;
+  if (!nav) return;
+  if (!activeItem) {
+    nav.classList.remove("has-indicator");
+    return;
+  }
 
   window.requestAnimationFrame(() => {
     const navRect = nav.getBoundingClientRect();
