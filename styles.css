@@ -802,9 +802,143 @@ h2 {
 }
 
 .auth-submit {
+  position: relative;
   width: 100%;
   min-height: 40px;
   margin-top: 2px;
+  overflow: hidden;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.auth-submit.is-loading {
+  cursor: wait;
+}
+
+.auth-submit.is-loading::before {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid color-mix(in srgb, currentColor, transparent 65%);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  content: "";
+  animation: auth-spinner 0.7s linear infinite;
+}
+
+.auth-submit.is-success {
+  background: #1f9f78;
+  box-shadow: 0 10px 26px color-mix(in srgb, #1f9f78, transparent 72%);
+}
+
+.auth-submit.is-success::before {
+  display: inline-block;
+  width: 8px;
+  height: 13px;
+  margin-right: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  content: "";
+  transform: translateY(-1px) rotate(45deg);
+  animation: auth-check-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.account-login-form.is-auth-complete {
+  pointer-events: none;
+  animation: auth-form-exit 0.28s ease both;
+}
+
+.profile-menu.is-auth-complete {
+  animation: auth-menu-exit 0.28s ease both;
+}
+
+.account-login-form.is-auth-error {
+  animation: auth-form-shake 0.4s ease;
+}
+
+.sidebar-user.is-auth-entering {
+  animation: auth-profile-enter 0.62s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.main-content.is-auth-entering .panel.is-visible {
+  animation: auth-content-enter 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes auth-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes auth-check-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) rotate(45deg) scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-1px) rotate(45deg) scale(1);
+  }
+}
+
+@keyframes auth-form-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes auth-menu-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+}
+
+@keyframes auth-form-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes auth-profile-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes auth-content-enter {
+  from {
+    opacity: 0.72;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-forgot-button {
@@ -2124,8 +2258,50 @@ body {
   flex: 0 0 48px;
   border: 1px solid rgba(67, 185, 142, 0.24);
   border-radius: 50%;
+  padding: 0;
   background: rgba(255, 255, 255, 0.54);
+  color: inherit;
   box-shadow: 0 10px 26px var(--shadow-soft);
+  transform-origin: center;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
+}
+
+.brand-mark:hover {
+  border-color: color-mix(in srgb, var(--accent), transparent 48%);
+  box-shadow:
+    0 12px 30px var(--shadow-soft),
+    0 0 0 5px color-mix(in srgb, var(--accent), transparent 90%);
+}
+
+.brand-mark:active {
+  transform: scale(0.96);
+}
+
+.brand-mark.is-sun-spinning {
+  animation: brand-sun-spin 0.76s cubic-bezier(0.22, 0.78, 0.24, 1);
+}
+
+@keyframes brand-sun-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  45% {
+    transform: rotate(210deg) scale(1.14);
+    box-shadow:
+      0 16px 34px color-mix(in srgb, var(--accent), transparent 72%),
+      0 0 0 8px color-mix(in srgb, var(--accent), transparent 88%);
+  }
+  78% {
+    transform: rotate(338deg) scale(0.97);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
 }
 
 .brand-mark > span {
@@ -4528,6 +4704,36 @@ body[data-theme="dark"] select {
   grid-template-columns: minmax(0, 1fr);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-brand,
+  .sidebar-account {
+    transition-duration: 0.01ms !important;
+  }
+
+  .brand-mark.is-sun-spinning {
+    animation: brand-sun-pulse 0.28s ease;
+  }
+
+  .auth-submit.is-loading::before {
+    animation-duration: 1.4s;
+  }
+
+  .auth-submit.is-success::before,
+  .account-login-form.is-auth-complete,
+  .profile-menu.is-auth-complete,
+  .account-login-form.is-auth-error,
+  .sidebar-user.is-auth-entering,
+  .main-content.is-auth-entering .panel.is-visible {
+    animation: none;
+  }
+}
+
+@keyframes brand-sun-pulse {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -4778,6 +4984,30 @@ body[data-theme="dark"] .sidebar-user {
     padding: 10px 14px;
   }
 
+  .sidebar-brand,
+  .sidebar-account {
+    transition:
+      opacity 0.24s ease,
+      transform 0.3s cubic-bezier(0.22, 0.8, 0.22, 1),
+      filter 0.24s ease;
+  }
+
+  .sidebar.is-mobile-header-hidden {
+    pointer-events: none;
+  }
+
+  .sidebar.is-mobile-header-hidden .sidebar-brand,
+  .sidebar.is-mobile-header-hidden .sidebar-account {
+    opacity: 0;
+    pointer-events: none;
+    filter: blur(2px);
+    transform: translateY(-20px) scale(0.9);
+  }
+
+  .sidebar.is-mobile-header-hidden .side-nav {
+    pointer-events: auto;
+  }
+
   .sidebar-account {
     width: auto;
   }
@@ -4911,4 +5141,134 @@ body[data-theme="dark"] .sidebar-user {
   .side-nav-indicator {
     transition: none;
   }
+}
+
+/* Neutral black dark theme */
+body[data-theme="dark"] {
+  --bg: #080909;
+  --body-bg: #080909;
+  --shell: #0c0d0d;
+  --sidebar: #0c0d0d;
+  --surface: #141515;
+  --surface-soft: #1a1b1b;
+  --surface-muted: #202121;
+  --ink: #f3f5f4;
+  --muted: #858a88;
+  --muted-strong: #c1c5c3;
+  --line: rgba(245, 250, 248, 0.09);
+  --line-strong: rgba(245, 250, 248, 0.16);
+  --track-bg: rgba(255, 255, 255, 0.08);
+  --shadow-soft: rgba(0, 0, 0, 0.24);
+  --shadow-medium: rgba(0, 0, 0, 0.36);
+  --shadow-strong: rgba(0, 0, 0, 0.48);
+}
+
+body[data-theme="dark"],
+body[data-theme="dark"] .app-shell,
+body[data-theme="dark"] .sidebar,
+body[data-theme="dark"] .main-content {
+  background: var(--shell);
+}
+
+body[data-theme="dark"] .app-shell {
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+}
+
+body[data-theme="dark"] .asset-month-bar,
+body[data-theme="dark"] .budget-toolbar {
+  border-color: var(--line);
+  background:
+    radial-gradient(circle at 82% -30%, rgba(87, 211, 165, 0.09), transparent 42%),
+    linear-gradient(135deg, #171918, #101111);
+}
+
+body[data-theme="dark"] .asset-group-card,
+body[data-theme="dark"] .asset-editor-card,
+body[data-theme="dark"] .budget-table-card,
+body[data-theme="dark"] .budget-table-wrap,
+body[data-theme="dark"] .panel,
+body[data-theme="dark"] #dashboardPanel .chart-card {
+  border-color: var(--line);
+  background: rgba(20, 21, 21, 0.96);
+}
+
+body[data-theme="dark"] .asset-group-card.is-active {
+  border-color: rgba(87, 211, 165, 0.3);
+  background:
+    radial-gradient(circle at 100% 0, rgba(87, 211, 165, 0.08), transparent 38%),
+    #191c1b;
+}
+
+body[data-theme="dark"] .asset-entry-card,
+body[data-theme="dark"] .budget-summary-card,
+body[data-theme="dark"] .metric {
+  border-color: var(--line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 70%),
+    #171818;
+}
+
+body[data-theme="dark"] .metric-inflation,
+body[data-theme="dark"] .budget-summary-expense {
+  background-color: #1c1a15;
+}
+
+body[data-theme="dark"] .metric-usd {
+  background-color: #121a17;
+}
+
+body[data-theme="dark"] .metric-eur,
+body[data-theme="dark"] .budget-summary-free {
+  background-color: #16191f;
+}
+
+body[data-theme="dark"] .chart-shell {
+  border-color: var(--line);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(87, 211, 165, 0.045), transparent 34%),
+    linear-gradient(180deg, #111212, #0d0e0e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+body[data-theme="dark"] .table-wrap,
+body[data-theme="dark"] .asset-control-bubble,
+body[data-theme="dark"] .settings-card {
+  border-color: var(--line);
+  background: rgba(24, 25, 25, 0.96);
+}
+
+body[data-theme="dark"] th,
+body[data-theme="dark"] .budget-table tfoot td {
+  background: #1d1e1e;
+}
+
+body[data-theme="dark"] .profile-menu {
+  background: rgba(18, 19, 19, 0.98);
+}
+
+body[data-theme="dark"] .brand-mark {
+  background: rgba(32, 34, 33, 0.9);
+}
+
+body[data-theme="dark"] .side-nav,
+body[data-theme="dark"] .sidebar-brand,
+body[data-theme="dark"] .sidebar-login,
+body[data-theme="dark"] .sidebar-user {
+  border-color: rgba(255, 255, 255, 0.13);
+  background:
+    linear-gradient(145deg, rgba(57, 59, 58, 0.62), rgba(18, 19, 19, 0.5)),
+    rgba(18, 19, 19, 0.72);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+body[data-theme="dark"] .side-nav-indicator {
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    radial-gradient(circle at 24% 10%, rgba(255, 255, 255, 0.15), transparent 44%),
+    linear-gradient(145deg, rgba(82, 85, 84, 0.7), rgba(34, 36, 35, 0.82));
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }

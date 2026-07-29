@@ -9,15 +9,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260727-119" />
+    <link rel="stylesheet" href="styles.css?v=20260729-123" />
   </head>
   <body>
     <main class="app-shell">
       <aside class="sidebar" aria-label="Навигация">
-        <div class="sidebar-brand" role="img" aria-label="finsun">
-          <span class="brand-mark" aria-hidden="true">
+        <div class="sidebar-brand">
+          <button class="brand-mark" id="logoSunButton" type="button" aria-label="Анимировать логотип finsun">
             <span></span><span></span><span></span><span></span>
-          </span>
+          </button>
           <span class="brand-wordmark" aria-hidden="true"><span>fin</span><strong>sun</strong></span>
         </div>
         <nav class="side-nav" aria-label="Основные разделы">
@@ -60,7 +60,6 @@
             Настройки
           </button>
         </nav>
-      </aside>
       <div class="sidebar-account">
           <div class="profile-menu" id="profileMenu" role="dialog" aria-label="Профиль пользователя" hidden>
             <div class="profile-menu-head">
@@ -158,6 +157,7 @@
           </button>
           </div>
       </div>
+      </aside>
 
       <div class="main-content">
       <header class="workspace-header">
@@ -488,6 +488,6 @@
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
-    <script src="app.js?v=20260727-124"></script>
+    <script src="app.js?v=20260729-129"></script>
   </body>
 </html>

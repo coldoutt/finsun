@@ -186,8 +186,13 @@ let authState = {
 };
 let authMode = "login";
 let passwordRecoveryActive = detectPasswordRecoveryRedirect();
+let mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
+let mobileHeaderDirection = 0;
+let mobileHeaderTravel = 0;
+let mobileHeaderTicking = false;
 
 const els = {
+  sidebar: document.querySelector(".sidebar"),
   totalMetric: document.querySelector("#totalMetric"),
   monthDeltaMetric: document.querySelector("#monthDeltaMetric"),
   yearDeltaMetric: document.querySelector("#yearDeltaMetric"),
@@ -231,6 +236,7 @@ const els = {
   assetStructurePeriod: document.querySelector("#assetStructurePeriod"),
   assetStructureTotal: document.querySelector("#assetStructureTotal"),
   saveNotice: document.querySelector("#saveNotice"),
+  logoSunButton: document.querySelector("#logoSunButton"),
   authEmailInput: document.querySelector("#authEmailInput"),
   authEmailField: document.querySelector("#authEmailField"),
   authPasswordInput: document.querySelector("#authPasswordInput"),
@@ -438,6 +444,7 @@ async function fetchMarketJson(url) {
 }
 
 function bindEvents() {
+  els.logoSunButton?.addEventListener("click", playLogoSunAnimation);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => selectTab(tab.dataset.tab));
   });
@@ -520,12 +527,63 @@ function bindEvents() {
   });
   els.chart.addEventListener("click", handleChartClick);
   window.addEventListener("resize", () => {
+    resetMobileHeaderVisibility();
     updateSideNavIndicator({ instant: true });
     resetChartInteraction();
     hideStructureTooltip();
     drawChart();
   });
+  window.addEventListener("scroll", handleMobileHeaderScroll, { passive: true });
   document.addEventListener("scroll", hideStructureTooltip, true);
+}
+
+function handleMobileHeaderScroll() {
+  if (mobileHeaderTicking) return;
+  mobileHeaderTicking = true;
+
+  window.requestAnimationFrame(() => {
+    const currentScrollY = Math.max(window.scrollY, 0);
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+
+    if (!isMobile || currentScrollY <= 48) {
+      els.sidebar?.classList.remove("is-mobile-header-hidden");
+      mobileHeaderLastScrollY = currentScrollY;
+      mobileHeaderDirection = 0;
+      mobileHeaderTravel = 0;
+      mobileHeaderTicking = false;
+      return;
+    }
+
+    const delta = currentScrollY - mobileHeaderLastScrollY;
+    const direction = Math.sign(delta);
+    mobileHeaderLastScrollY = currentScrollY;
+
+    if (direction !== 0) {
+      if (direction !== mobileHeaderDirection) {
+        mobileHeaderDirection = direction;
+        mobileHeaderTravel = 0;
+      }
+      mobileHeaderTravel += Math.abs(delta);
+    }
+
+    if (mobileHeaderTravel >= 12) {
+      const shouldHide = mobileHeaderDirection > 0;
+      els.sidebar?.classList.toggle("is-mobile-header-hidden", shouldHide);
+      if (shouldHide && !els.profileMenu?.hidden) toggleProfileMenu(false);
+      mobileHeaderTravel = 0;
+    }
+
+    mobileHeaderTicking = false;
+  });
+}
+
+function resetMobileHeaderVisibility() {
+  if (!window.matchMedia("(max-width: 900px)").matches) {
+    els.sidebar?.classList.remove("is-mobile-header-hidden");
+  }
+  mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
+  mobileHeaderDirection = 0;
+  mobileHeaderTravel = 0;
 }
 
 function selectTab(name, options = {}) {
@@ -2348,7 +2406,21 @@ function setTheme(theme) {
 }
 
 function applyTheme(theme) {
-  document.body.dataset.theme = theme === "dark" ? "dark" : "light";
+  const isDark = theme === "dark";
+  document.body.dataset.theme = isDark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#0c0d0d" : "#cceee9");
+}
+
+function playLogoSunAnimation() {
+  if (!els.logoSunButton) return;
+  els.logoSunButton.classList.remove("is-sun-spinning");
+  void els.logoSunButton.offsetWidth;
+  els.logoSunButton.classList.add("is-sun-spinning");
+  els.logoSunButton.addEventListener(
+    "animationend",
+    () => els.logoSunButton?.classList.remove("is-sun-spinning"),
+    { once: true },
+  );
 }
 
 async function hydrateSession() {
@@ -2604,6 +2676,7 @@ async function registerAccount() {
 }
 
 async function loginAccount() {
+  setAuthButtonBusy(els.loginBtn, true, "Входим...");
   try {
     clearAuthMessage();
     const credentials = readAuthCredentials();
@@ -2612,15 +2685,20 @@ async function loginAccount() {
     if (error) throw error;
     authState.user = await loadSupabaseUser(data.user);
     clearAuthPassword();
-    updateAccountStatus();
     await reloadStateFromAccount();
+    await playLoginSuccessAnimation();
+    updateAccountStatus();
     toggleProfileMenu(false);
+    playAuthenticatedContentEntrance();
     showSaveNotice("Вход выполнен");
   } catch (error) {
     console.error("Login failed", error);
     const message = getAuthErrorMessage(error, "Не удалось выполнить вход");
     showAuthMessage(message);
+    playLoginErrorAnimation();
     showSaveNotice(message, "error");
+  } finally {
+    setAuthButtonBusy(els.loginBtn, false);
   }
 }
 
@@ -2709,7 +2787,53 @@ function setAuthButtonBusy(button, busy, busyLabel = "") {
     button.textContent = button.dataset.defaultLabel;
     delete button.dataset.defaultLabel;
   }
+  button.classList.toggle("is-loading", busy);
+  button.setAttribute("aria-busy", String(busy));
   button.disabled = busy;
+}
+
+async function playLoginSuccessAnimation() {
+  if (!els.loginBtn) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  els.loginBtn.classList.remove("is-loading");
+  els.loginBtn.classList.add("is-success");
+  els.loginBtn.textContent = "Вход выполнен";
+
+  if (!reduceMotion) await waitForUi(520);
+  els.accountLoginForm?.classList.add("is-auth-complete");
+  els.profileMenu?.classList.add("is-auth-complete");
+  if (!reduceMotion) await waitForUi(260);
+}
+
+function playLoginErrorAnimation() {
+  if (!els.accountLoginForm) return;
+  els.accountLoginForm.classList.remove("is-auth-error");
+  void els.accountLoginForm.offsetWidth;
+  els.accountLoginForm.classList.add("is-auth-error");
+  window.setTimeout(() => {
+    els.accountLoginForm?.classList.remove("is-auth-error");
+  }, 440);
+}
+
+function playAuthenticatedContentEntrance() {
+  els.loginBtn?.classList.remove("is-success");
+  els.accountLoginForm?.classList.remove("is-auth-complete");
+  els.profileMenu?.classList.remove("is-auth-complete");
+  els.sidebarUserBtn?.classList.remove("is-auth-entering");
+  document.querySelector(".main-content")?.classList.remove("is-auth-entering");
+
+  window.requestAnimationFrame(() => {
+    els.sidebarUserBtn?.classList.add("is-auth-entering");
+    document.querySelector(".main-content")?.classList.add("is-auth-entering");
+    window.setTimeout(() => {
+      els.sidebarUserBtn?.classList.remove("is-auth-entering");
+      document.querySelector(".main-content")?.classList.remove("is-auth-entering");
+    }, 720);
+  });
+}
+
+function waitForUi(duration) {
+  return new Promise((resolve) => window.setTimeout(resolve, duration));
 }
 
 async function logoutAccount() {
