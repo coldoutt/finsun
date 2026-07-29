@@ -2479,13 +2479,14 @@ function updateAccountStatus() {
       els.profileMenuSubtitle.textContent = "";
       els.profileMenuSubtitle.hidden = true;
     }
-    els.accountNote.textContent = "Изменения сохраняются в защищённом персональном хранилище Supabase.";
+    els.accountNote.hidden = true;
     if (els.accountLoginForm) els.accountLoginForm.hidden = true;
     if (els.accountSession) els.accountSession.hidden = false;
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = true;
     if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = false;
   } else {
     els.accountStatus.value = "";
+    els.accountNote.hidden = false;
     els.accountNote.textContent = "В гостевом режиме активы и история не сохраняются.";
     if (els.accountLoginForm) els.accountLoginForm.hidden = false;
     if (els.accountSession) els.accountSession.hidden = true;
