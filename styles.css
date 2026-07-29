@@ -869,10 +869,6 @@ h2 {
   animation: auth-profile-enter 0.62s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
-.main-content.is-auth-entering {
-  animation: auth-content-enter 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
 @keyframes auth-spinner {
   to {
     transform: rotate(360deg);
@@ -932,17 +928,6 @@ h2 {
   to {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-@keyframes auth-content-enter {
-  from {
-    opacity: 0.72;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -4727,8 +4712,7 @@ body[data-theme="dark"] select {
   .account-login-form.is-auth-complete,
   .profile-menu.is-auth-complete,
   .account-login-form.is-auth-error,
-  .sidebar-user.is-auth-entering,
-  .main-content.is-auth-entering {
+  .sidebar-user.is-auth-entering {
     animation: none;
   }
 }
@@ -5311,10 +5295,14 @@ body[data-theme="dark"] .side-nav::after {
 }
 
 body[data-theme="dark"] .side-nav-indicator {
-  border: 0;
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.045);
   box-shadow: none;
-  opacity: 0 !important;
+  opacity: 0;
+}
+
+body[data-theme="dark"] .side-nav.has-indicator .side-nav-indicator {
+  opacity: 1;
 }
 
 body[data-theme="dark"] .side-nav-item,
@@ -5335,4 +5323,26 @@ body[data-theme="dark"] .side-nav-item.is-active {
 
 body[data-theme="dark"] .side-nav-item.is-active .side-icon {
   filter: none;
+}
+
+/* Profile menu pointer alignment */
+.profile-menu {
+  top: 74px;
+}
+
+.profile-menu::after {
+  right: 25px;
+  border-radius: 2px 0 0;
+  background: color-mix(in srgb, var(--surface), transparent 3%);
+}
+
+@media (max-width: 680px) {
+  .profile-menu {
+    top: 76px;
+    right: 10px;
+  }
+
+  .profile-menu::after {
+    right: 12px;
+  }
 }

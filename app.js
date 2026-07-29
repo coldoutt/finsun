@@ -2820,14 +2820,11 @@ function playAuthenticatedContentEntrance() {
   els.accountLoginForm?.classList.remove("is-auth-complete");
   els.profileMenu?.classList.remove("is-auth-complete");
   els.sidebarUserBtn?.classList.remove("is-auth-entering");
-  document.querySelector(".main-content")?.classList.remove("is-auth-entering");
 
   window.requestAnimationFrame(() => {
     els.sidebarUserBtn?.classList.add("is-auth-entering");
-    document.querySelector(".main-content")?.classList.add("is-auth-entering");
     window.setTimeout(() => {
       els.sidebarUserBtn?.classList.remove("is-auth-entering");
-      document.querySelector(".main-content")?.classList.remove("is-auth-entering");
     }, 720);
   });
 }
