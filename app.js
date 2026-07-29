@@ -3,7 +3,7 @@ const LEGACY_FINANCE_STORAGE_KEY = "finance-summary-v1";
 const THEME_KEY = "finance-theme";
 const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BHG2D4weWXsm2LKbH6AIxg_dPBJ0Fnh";
-const EXTERNAL_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+const EXTERNAL_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const STATIC_METRICS_URL = "https://raw.githubusercontent.com/coldoutt/finsun/main/metrics.json";
 const FRANKFURTER_API_URL = "https://api.frankfurter.dev/v2";
 const COINPAPRIKA_API_URL = "https://api.coinpaprika.com/v1";
@@ -2408,7 +2408,7 @@ function setTheme(theme) {
 function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.dataset.theme = isDark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#0c0d0d" : "#cceee9");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#080a0a" : "#cceee9");
 }
 
 function playLogoSunAnimation() {

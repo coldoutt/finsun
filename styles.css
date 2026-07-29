@@ -803,9 +803,14 @@ h2 {
 
 .auth-submit {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   min-height: 40px;
   margin-top: 2px;
+  line-height: 1;
   overflow: hidden;
   transition:
     background 0.2s ease,
@@ -822,7 +827,7 @@ h2 {
   display: inline-block;
   width: 14px;
   height: 14px;
-  margin-right: 8px;
+  flex: 0 0 14px;
   border: 2px solid color-mix(in srgb, currentColor, transparent 65%);
   border-top-color: currentColor;
   border-radius: 50%;
@@ -839,7 +844,7 @@ h2 {
   display: inline-block;
   width: 8px;
   height: 13px;
-  margin-right: 9px;
+  flex: 0 0 8px;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   content: "";
@@ -864,7 +869,7 @@ h2 {
   animation: auth-profile-enter 0.62s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 
-.main-content.is-auth-entering .panel.is-visible {
+.main-content.is-auth-entering {
   animation: auth-content-enter 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
@@ -4723,7 +4728,7 @@ body[data-theme="dark"] select {
   .profile-menu.is-auth-complete,
   .account-login-form.is-auth-error,
   .sidebar-user.is-auth-entering,
-  .main-content.is-auth-entering .panel.is-visible {
+  .main-content.is-auth-entering {
     animation: none;
   }
 }
@@ -4739,7 +4744,7 @@ body[data-theme="dark"] select {
   top: 0;
   z-index: 45;
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 150px minmax(0, 1fr) 150px;
   align-items: center;
   gap: 18px;
   width: 100%;
@@ -4747,7 +4752,7 @@ body[data-theme="dark"] select {
   min-height: 82px;
   border-right: 0;
   border-bottom: 0;
-  padding: 12px 170px 12px 20px;
+  padding: 12px 20px;
   background: transparent;
   overflow: visible;
   -webkit-backdrop-filter: none;
@@ -4772,8 +4777,12 @@ body[data-theme="dark"] select {
 }
 
 .sidebar-account {
-  top: 12px;
-  right: 28px;
+  position: relative;
+  grid-column: 3;
+  justify-self: end;
+  top: auto;
+  right: auto;
+  max-width: 150px;
 }
 
 .sidebar-account-actions {
@@ -5009,6 +5018,9 @@ body[data-theme="dark"] .sidebar-user {
   }
 
   .sidebar-account {
+    position: absolute;
+    top: 10px;
+    right: 14px;
     width: auto;
   }
 
@@ -5076,6 +5088,7 @@ body[data-theme="dark"] .sidebar-user {
 
   .sidebar-account {
     top: 9px;
+    right: 10px;
     width: auto;
   }
 
@@ -5271,4 +5284,55 @@ body[data-theme="dark"] .side-nav-indicator {
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* Layered neutral dark theme */
+body[data-theme="dark"] {
+  --body-bg: #080a0a;
+  --shell: #111313;
+  --sidebar: #111313;
+  --surface: #191b1b;
+  --surface-soft: #202222;
+  --surface-muted: #272929;
+  background: var(--body-bg);
+}
+
+body[data-theme="dark"] .app-shell,
+body[data-theme="dark"] .main-content {
+  background: var(--shell);
+}
+
+body[data-theme="dark"] .sidebar {
+  background: transparent;
+}
+
+body[data-theme="dark"] .side-nav::after {
+  display: none;
+}
+
+body[data-theme="dark"] .side-nav-indicator {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0 !important;
+}
+
+body[data-theme="dark"] .side-nav-item,
+body[data-theme="dark"] .side-nav-item.is-active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+body[data-theme="dark"] .side-nav-item:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+body[data-theme="dark"] .side-nav-item.is-active {
+  color: var(--accent);
+}
+
+body[data-theme="dark"] .side-nav-item.is-active .side-icon {
+  filter: none;
 }
