@@ -6,6 +6,7 @@ create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   first_name text not null default '' check (char_length(first_name) <= 80),
   last_name text not null default '' check (char_length(last_name) <= 80),
+  avatar_path text check (avatar_path is null or char_length(avatar_path) <= 500),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -54,6 +55,49 @@ with check ((select auth.uid()) = user_id);
 
 grant select, update on table public.profiles to authenticated;
 grant select, insert, update on table public.finance_states to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'avatars',
+  'avatars',
+  false,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "Users can read their avatar"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and owner_id = (select auth.uid()::text)
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "Users can upload their avatar"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "Users can delete their avatar"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and owner_id = (select auth.uid()::text)
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
 
 create or replace function public.handle_new_user()
 returns trigger

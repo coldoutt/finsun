@@ -115,6 +115,27 @@
                 </div>
               </div>
               <div class="account-session" id="accountSession" hidden>
+                <div class="profile-avatar-editor">
+                  <button class="profile-avatar-preview" id="profileAvatarSelectBtn" type="button" aria-label="Выбрать фотографию профиля">
+                    <img id="profileAvatarPreviewImage" alt="" hidden />
+                    <span id="profileAvatarPreviewInitials" aria-hidden="true">П</span>
+                    <span class="profile-avatar-camera" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M8.5 6.5 10 4.5h4l1.5 2H18a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h2.5Z" />
+                        <circle cx="12" cy="13" r="3.5" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div class="profile-avatar-copy">
+                    <strong>Фотография профиля</strong>
+                    <span>JPG, PNG или WebP. Изображение будет обрезано до квадрата.</span>
+                    <div class="profile-avatar-actions">
+                      <button class="profile-avatar-action" id="profileAvatarChooseBtn" type="button">Выбрать фото</button>
+                      <button class="profile-avatar-action profile-avatar-remove" id="profileAvatarRemoveBtn" type="button" hidden>Удалить</button>
+                    </div>
+                  </div>
+                  <input id="profileAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+                </div>
                 <div class="profile-fields">
                   <label>
                     Имя
@@ -153,7 +174,10 @@
             <span class="sidebar-user-copy">
               <strong id="sidebarUserName">Пользователь</strong>
             </span>
-            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">П</span>
+            <span class="sidebar-avatar" id="sidebarUserAvatar" aria-hidden="true">
+              <img id="sidebarUserAvatarImage" alt="" hidden />
+              <span id="sidebarUserAvatarInitials">П</span>
+            </span>
           </button>
           </div>
       </div>

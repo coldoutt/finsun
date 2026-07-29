@@ -184,6 +184,10 @@ let authState = {
   provider: "supabase",
   user: null,
 };
+const AVATAR_BUCKET = "avatars";
+const AVATAR_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
+const AVATAR_MAX_PIXELS = 24_000_000;
+const AVATAR_OUTPUT_SIZE = 512;
 let authMode = "login";
 let passwordRecoveryActive = detectPasswordRecoveryRedirect();
 let mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
@@ -261,6 +265,12 @@ const els = {
   saveProfileBtn: document.querySelector("#saveProfileBtn"),
   profileFirstNameInput: document.querySelector("#profileFirstNameInput"),
   profileLastNameInput: document.querySelector("#profileLastNameInput"),
+  profileAvatarInput: document.querySelector("#profileAvatarInput"),
+  profileAvatarSelectBtn: document.querySelector("#profileAvatarSelectBtn"),
+  profileAvatarChooseBtn: document.querySelector("#profileAvatarChooseBtn"),
+  profileAvatarRemoveBtn: document.querySelector("#profileAvatarRemoveBtn"),
+  profileAvatarPreviewImage: document.querySelector("#profileAvatarPreviewImage"),
+  profileAvatarPreviewInitials: document.querySelector("#profileAvatarPreviewInitials"),
   accountLoginForm: document.querySelector("#accountLoginForm"),
   accountSession: document.querySelector("#accountSession"),
   accountStatus: document.querySelector("#accountStatus"),
@@ -268,6 +278,8 @@ const els = {
   sidebarLoginBtn: document.querySelector("#sidebarLoginBtn"),
   sidebarUserBtn: document.querySelector("#sidebarUserBtn"),
   sidebarUserAvatar: document.querySelector("#sidebarUserAvatar"),
+  sidebarUserAvatarImage: document.querySelector("#sidebarUserAvatarImage"),
+  sidebarUserAvatarInitials: document.querySelector("#sidebarUserAvatarInitials"),
   sidebarUserName: document.querySelector("#sidebarUserName"),
   profileMenu: document.querySelector("#profileMenu"),
   profileMenuCloseBtn: document.querySelector("#profileMenuCloseBtn"),
@@ -461,6 +473,10 @@ function bindEvents() {
   els.updatePasswordBtn?.addEventListener("click", updateRecoveredPassword);
   els.logoutBtn?.addEventListener("click", logoutAccount);
   els.saveProfileBtn?.addEventListener("click", saveProfile);
+  els.profileAvatarSelectBtn?.addEventListener("click", openAvatarPicker);
+  els.profileAvatarChooseBtn?.addEventListener("click", openAvatarPicker);
+  els.profileAvatarRemoveBtn?.addEventListener("click", removeProfileAvatar);
+  els.profileAvatarInput?.addEventListener("change", handleAvatarSelection);
   els.sidebarLoginBtn?.addEventListener("click", () => toggleProfileMenu());
   els.sidebarUserBtn?.addEventListener("click", () => toggleProfileMenu());
   els.profileMenuCloseBtn?.addEventListener("click", () => toggleProfileMenu(false));
@@ -2458,7 +2474,7 @@ function updateAccountStatus() {
     if (els.profileFirstNameInput) els.profileFirstNameInput.value = profile.firstName;
     if (els.profileLastNameInput) els.profileLastNameInput.value = profile.lastName;
     if (els.sidebarUserName) els.sidebarUserName.textContent = displayName;
-    if (els.sidebarUserAvatar) els.sidebarUserAvatar.textContent = getUserInitials(profile);
+    renderProfileAvatar(profile);
     if (els.profileMenuSubtitle) {
       els.profileMenuSubtitle.textContent = "";
       els.profileMenuSubtitle.hidden = true;
@@ -2475,6 +2491,7 @@ function updateAccountStatus() {
     if (els.accountSession) els.accountSession.hidden = true;
     if (els.sidebarLoginBtn) els.sidebarLoginBtn.hidden = false;
     if (els.sidebarUserBtn) els.sidebarUserBtn.hidden = true;
+    clearProfileAvatar();
     if (els.profileMenuSubtitle) {
       els.profileMenuSubtitle.textContent = "Вход в персональный аккаунт";
       els.profileMenuSubtitle.hidden = false;
@@ -2611,6 +2628,257 @@ async function saveProfile() {
     console.error("Profile save failed", error);
     showSaveNotice(error.message || "Не удалось сохранить профиль", "error");
   }
+}
+
+function openAvatarPicker() {
+  if (!isAuthenticated() || els.profileAvatarSelectBtn?.disabled) return;
+  els.profileAvatarInput?.click();
+}
+
+async function handleAvatarSelection(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file || !isAuthenticated()) return;
+
+  setAvatarEditorBusy(true);
+  let uploadedPath = "";
+  let profileUpdated = false;
+  try {
+    ensureSupabaseClient();
+    const { blob, extension } = await prepareAvatarImage(file);
+    uploadedPath = `${authState.user.id}/avatar-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabaseClient.storage
+      .from(AVATAR_BUCKET)
+      .upload(uploadedPath, blob, {
+        cacheControl: "31536000",
+        contentType: blob.type,
+        upsert: false,
+      });
+    if (uploadError) throw uploadError;
+
+    const previousPath = authState.user.avatarPath;
+    const { data, error: profileError } = await supabaseClient
+      .from("profiles")
+      .update({
+        avatar_path: uploadedPath,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authState.user.id)
+      .select("avatar_path")
+      .single();
+    if (profileError) throw profileError;
+
+    profileUpdated = true;
+    let avatarUrl = "";
+    try {
+      avatarUrl = await createAvatarUrl(data.avatar_path);
+    } catch (avatarError) {
+      console.warn("Avatar URL creation failed", avatarError);
+    }
+    authState.user = {
+      ...authState.user,
+      avatarPath: data.avatar_path,
+      avatarUrl,
+    };
+    updateAccountStatus();
+    showSaveNotice("Фотография профиля обновлена");
+
+    if (previousPath && previousPath !== data.avatar_path) {
+      const { error: removeError } = await supabaseClient.storage
+        .from(AVATAR_BUCKET)
+        .remove([previousPath]);
+      if (removeError) console.warn("Previous avatar cleanup failed", removeError);
+    }
+  } catch (error) {
+    console.error("Avatar upload failed", error);
+    if (uploadedPath && !profileUpdated) {
+      await supabaseClient.storage.from(AVATAR_BUCKET).remove([uploadedPath]);
+    }
+    showSaveNotice(getAvatarErrorMessage(error), "error");
+  } finally {
+    setAvatarEditorBusy(false);
+  }
+}
+
+async function removeProfileAvatar() {
+  if (!isAuthenticated() || !authState.user.avatarPath) return;
+
+  const previousPath = authState.user.avatarPath;
+  setAvatarEditorBusy(true);
+  try {
+    ensureSupabaseClient();
+    const { error: profileError } = await supabaseClient
+      .from("profiles")
+      .update({
+        avatar_path: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authState.user.id);
+    if (profileError) throw profileError;
+
+    authState.user = {
+      ...authState.user,
+      avatarPath: "",
+      avatarUrl: "",
+    };
+    updateAccountStatus();
+    showSaveNotice("Фотография профиля удалена");
+
+    const { error: removeError } = await supabaseClient.storage
+      .from(AVATAR_BUCKET)
+      .remove([previousPath]);
+    if (removeError) console.warn("Avatar cleanup failed", removeError);
+  } catch (error) {
+    console.error("Avatar removal failed", error);
+    showSaveNotice(error.message || "Не удалось удалить фотографию", "error");
+  } finally {
+    setAvatarEditorBusy(false);
+  }
+}
+
+async function prepareAvatarImage(file) {
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type)) {
+    throw new Error("Выберите изображение JPG, PNG или WebP");
+  }
+  if (file.size > AVATAR_SOURCE_MAX_BYTES) {
+    throw new Error("Исходное изображение должно быть не больше 10 МБ");
+  }
+
+  const image = await decodeAvatarImage(file);
+  try {
+    if (image.width * image.height > AVATAR_MAX_PIXELS) {
+      throw new Error("Разрешение изображения слишком большое");
+    }
+    const side = Math.min(image.width, image.height);
+    const sourceX = Math.floor((image.width - side) / 2);
+    const sourceY = Math.floor((image.height - side) / 2);
+    const canvas = document.createElement("canvas");
+    canvas.width = AVATAR_OUTPUT_SIZE;
+    canvas.height = AVATAR_OUTPUT_SIZE;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Браузер не смог обработать изображение");
+    context.drawImage(
+      image.source,
+      sourceX,
+      sourceY,
+      side,
+      side,
+      0,
+      0,
+      AVATAR_OUTPUT_SIZE,
+      AVATAR_OUTPUT_SIZE,
+    );
+    const webpBlob = await canvasToBlob(canvas, "image/webp", 0.86);
+    if (webpBlob.type === "image/webp") {
+      return { blob: webpBlob, extension: "webp" };
+    }
+    const jpegBlob = await canvasToBlob(canvas, "image/jpeg", 0.88);
+    return { blob: jpegBlob, extension: "jpg" };
+  } finally {
+    image.release();
+  }
+}
+
+async function decodeAvatarImage(file) {
+  if ("createImageBitmap" in window) {
+    const bitmap = await createImageBitmap(file);
+    return {
+      source: bitmap,
+      width: bitmap.width,
+      height: bitmap.height,
+      release: () => bitmap.close(),
+    };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = objectUrl;
+    await image.decode();
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      release: () => URL.revokeObjectURL(objectUrl),
+    };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Не удалось подготовить изображение"));
+    }, type, quality);
+  });
+}
+
+function setAvatarEditorBusy(busy) {
+  [
+    els.profileAvatarSelectBtn,
+    els.profileAvatarChooseBtn,
+    els.profileAvatarRemoveBtn,
+  ].forEach((button) => {
+    if (button) button.disabled = busy;
+  });
+  els.profileAvatarSelectBtn?.classList.toggle("is-loading", busy);
+}
+
+function renderProfileAvatar(profile) {
+  const initials = getUserInitials(profile);
+  setAvatarContent(els.sidebarUserAvatarImage, els.sidebarUserAvatarInitials, profile.avatarUrl, initials);
+  setAvatarContent(els.profileAvatarPreviewImage, els.profileAvatarPreviewInitials, profile.avatarUrl, initials);
+  if (els.profileAvatarRemoveBtn) els.profileAvatarRemoveBtn.hidden = !profile.avatarPath;
+}
+
+function setAvatarContent(image, initialsElement, avatarUrl, initials) {
+  if (initialsElement) {
+    initialsElement.textContent = initials;
+    initialsElement.hidden = Boolean(avatarUrl);
+  }
+  if (!image) return;
+  image.hidden = !avatarUrl;
+  if (avatarUrl) {
+    image.src = avatarUrl;
+    image.onerror = () => {
+      image.hidden = true;
+      image.removeAttribute("src");
+      if (initialsElement) initialsElement.hidden = false;
+    };
+  } else {
+    image.removeAttribute("src");
+  }
+}
+
+function clearProfileAvatar() {
+  setAvatarContent(els.sidebarUserAvatarImage, els.sidebarUserAvatarInitials, "", "П");
+  setAvatarContent(els.profileAvatarPreviewImage, els.profileAvatarPreviewInitials, "", "П");
+  if (els.profileAvatarRemoveBtn) els.profileAvatarRemoveBtn.hidden = true;
+}
+
+async function createAvatarUrl(avatarPath) {
+  if (!avatarPath) return "";
+  const { data, error } = await supabaseClient.storage
+    .from(AVATAR_BUCKET)
+    .createSignedUrl(avatarPath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+function getAvatarErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (/bucket not found/i.test(message)) {
+    return "Хранилище аватаров ещё не настроено в Supabase";
+  }
+  if (/row-level security|unauthorized|forbidden/i.test(message)) {
+    return "Нет доступа к хранилищу аватаров. Проверьте RLS-политики";
+  }
+  return message || "Не удалось загрузить фотографию";
 }
 
 function readAuthCredentials() {
@@ -3000,6 +3268,8 @@ function getUserProfile(user) {
   return {
     firstName: String(user?.firstName || defaults.firstName).trim(),
     lastName: String(user?.lastName || defaults.lastName).trim(),
+    avatarPath: String(user?.avatarPath || ""),
+    avatarUrl: String(user?.avatarUrl || ""),
   };
 }
 
@@ -3035,18 +3305,36 @@ function needsEmptyStateMigration(value) {
 async function loadSupabaseUser(user) {
   if (!user) return null;
   ensureSupabaseClient();
-  const { data, error } = await supabaseClient
+  let { data, error } = await supabaseClient
     .from("profiles")
-    .select("first_name, last_name")
+    .select("first_name, last_name, avatar_path")
     .eq("id", user.id)
     .maybeSingle();
+  if (error?.code === "42703") {
+    ({ data, error } = await supabaseClient
+      .from("profiles")
+      .select("first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle());
+  }
   if (error) throw error;
   const metadata = user.user_metadata || {};
+  const avatarPath = data?.avatar_path || "";
+  let avatarUrl = "";
+  if (avatarPath) {
+    try {
+      avatarUrl = await createAvatarUrl(avatarPath);
+    } catch (avatarError) {
+      console.warn("Avatar URL creation failed", avatarError);
+    }
+  }
   return {
     id: user.id,
     email: user.email,
     firstName: data?.first_name || metadata.first_name || "",
     lastName: data?.last_name || metadata.last_name || "",
+    avatarPath,
+    avatarUrl,
     createdAt: user.created_at,
   };
 }
