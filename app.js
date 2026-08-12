@@ -1,6 +1,7 @@
 const AUTH_STORAGE_KEY = "finance-auth-v1";
 const LEGACY_FINANCE_STORAGE_KEY = "finance-summary-v1";
 const THEME_KEY = "finance-theme";
+const SIDEBAR_COLLAPSE_KEY = "finance-sidebar-collapsed";
 const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BHG2D4weWXsm2LKbH6AIxg_dPBJ0Fnh";
 const EXTERNAL_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -197,6 +198,7 @@ let mobileHeaderTicking = false;
 
 const els = {
   sidebar: document.querySelector(".sidebar"),
+  sidebarCollapseBtn: document.querySelector("#sidebarCollapseBtn"),
   totalMetric: document.querySelector("#totalMetric"),
   monthDeltaMetric: document.querySelector("#monthDeltaMetric"),
   yearDeltaMetric: document.querySelector("#yearDeltaMetric"),
@@ -299,6 +301,7 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   hydrateTheme();
+  hydrateSidebarState();
   fillMonthSelect();
   fillBudgetMonthSelect();
   fillYearSelects();
@@ -457,6 +460,7 @@ async function fetchMarketJson(url) {
 
 function bindEvents() {
   els.logoSunButton?.addEventListener("click", playLogoSunAnimation);
+  els.sidebarCollapseBtn?.addEventListener("click", toggleSidebarCollapsed);
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => selectTab(tab.dataset.tab));
   });
@@ -2425,6 +2429,34 @@ function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.dataset.theme = isDark ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#111313" : "#f4f3f1");
+}
+
+function hydrateSidebarState() {
+  const isCollapsed = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "true";
+  applySidebarCollapsed(isCollapsed);
+}
+
+function toggleSidebarCollapsed() {
+  const isCollapsed = !document.body.classList.contains("is-sidebar-collapsed");
+  localStorage.setItem(SIDEBAR_COLLAPSE_KEY, String(isCollapsed));
+  applySidebarCollapsed(isCollapsed);
+  toggleProfileMenu(false);
+  window.requestAnimationFrame(() => {
+    updateSideNavIndicator({ instant: true });
+    resetChartInteraction();
+    drawChart();
+  });
+}
+
+function applySidebarCollapsed(isCollapsed) {
+  document.body.classList.toggle("is-sidebar-collapsed", isCollapsed);
+  if (!els.sidebarCollapseBtn) return;
+  els.sidebarCollapseBtn.setAttribute("aria-pressed", String(isCollapsed));
+  els.sidebarCollapseBtn.setAttribute(
+    "aria-label",
+    isCollapsed ? "Развернуть боковую панель" : "Свернуть боковую панель",
+  );
+  els.sidebarCollapseBtn.title = isCollapsed ? "Развернуть панель" : "Свернуть панель";
 }
 
 function playLogoSunAnimation() {
