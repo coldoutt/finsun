@@ -6647,11 +6647,12 @@ body[data-theme="dark"] .sidebar-user:hover {
 }
 
 .profile-menu {
-  position: absolute;
-  left: calc(100% + 12px);
+  position: fixed;
+  z-index: 100;
+  left: calc(var(--sidebar-width) + 12px);
   right: auto;
   top: auto;
-  bottom: 0;
+  bottom: 18px;
   width: 380px;
   max-width: calc(100vw - var(--sidebar-width) - 36px);
 }
@@ -6734,6 +6735,7 @@ body.is-sidebar-collapsed .sidebar-user {
 }
 
 body.is-sidebar-collapsed .profile-menu {
+  left: calc(var(--sidebar-collapsed-width) + 12px);
   max-width: calc(100vw - var(--sidebar-collapsed-width) - 36px);
 }
 
