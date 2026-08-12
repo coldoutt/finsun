@@ -6343,8 +6343,9 @@ body[data-theme="dark"] .profile-menu {
 
 /* Reference-aligned sidebar */
 :root {
-  --sidebar-width: 292px;
+  --sidebar-width: 264px;
   --sidebar-collapsed-width: 82px;
+  --sidebar-nav-gap: 18px;
 }
 
 .app-shell {
@@ -6359,13 +6360,13 @@ body[data-theme="dark"] .profile-menu {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 24px;
+  gap: var(--sidebar-nav-gap);
   width: auto;
   height: 100vh;
   min-height: 100vh;
   border-right: 0;
   border-bottom: 0;
-  padding: 22px 14px 18px;
+  padding: 22px 10px 18px;
   background: var(--sidebar);
   overflow-x: hidden;
   overflow-y: auto;
@@ -6427,16 +6428,16 @@ body[data-theme="dark"] .profile-menu {
 .sidebar-utilities {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   margin-left: auto;
 }
 
 .sidebar-utility {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   border: 0;
   border-radius: 3px;
   padding: 0;
@@ -6452,8 +6453,8 @@ body[data-theme="dark"] .profile-menu {
 }
 
 .sidebar-utility svg {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -6503,7 +6504,7 @@ body[data-theme="dark"] .side-nav-item.is-active {
   min-height: 50px;
   border: 0;
   border-radius: 3px;
-  padding: 0 16px;
+  padding: 0 14px;
   background: transparent;
   color: var(--ink);
   box-shadow: none;
