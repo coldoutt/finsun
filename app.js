@@ -2424,7 +2424,7 @@ function setTheme(theme) {
 function applyTheme(theme) {
   const isDark = theme === "dark";
   document.body.dataset.theme = isDark ? "dark" : "light";
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#080a0a" : "#cceee9");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#111313" : "#f4f3f1");
 }
 
 function playLogoSunAnimation() {
