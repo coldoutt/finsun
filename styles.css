@@ -6914,3 +6914,15 @@ body[data-theme="dark"] .sidebar-user {
     display: none;
   }
 }
+
+/* Borderless dashboard cards */
+.metric,
+#dashboardPanel .chart-card,
+#dashboardPanel .asset-structure,
+body[data-theme="dark"] .metric,
+body[data-theme="dark"] #dashboardPanel .chart-card,
+body[data-theme="dark"] #dashboardPanel .asset-structure {
+  border: 0;
+  border-radius: 2px;
+  box-shadow: 0 2px 10px var(--shadow-soft);
+}
