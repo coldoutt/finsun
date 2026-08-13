@@ -1,6 +1,4 @@
--- Run through Supabase migrations. Browser access is always restricted by RLS.
-
-revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+-- Current schema snapshot. Apply changes from supabase/migrations in production.
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -13,8 +11,9 @@ create table public.profiles (
 
 create table public.finance_states (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  state jsonb not null default '{"records":[],"currentRows":[],"budgets":[]}'::jsonb
+  state jsonb not null default '{"schemaVersion":2,"records":[],"currentRows":[],"budgets":[],"goals":[]}'::jsonb
     check (jsonb_typeof(state) = 'object'),
+  version bigint not null default 0 check (version >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -95,6 +94,49 @@ for delete
 to authenticated
 using (
   bucket_id = 'avatars'
+  and owner_id = (select auth.uid()::text)
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'goal-images',
+  'goal-images',
+  false,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+create policy "Users can read their goal images"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'goal-images'
+  and owner_id = (select auth.uid()::text)
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "Users can upload their goal images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'goal-images'
+  and (storage.foldername(name))[1] = (select auth.uid()::text)
+);
+
+create policy "Users can delete their goal images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'goal-images'
   and owner_id = (select auth.uid()::text)
   and (storage.foldername(name))[1] = (select auth.uid()::text)
 );

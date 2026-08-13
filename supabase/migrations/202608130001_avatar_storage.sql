@@ -1,5 +1,3 @@
--- Run once in the Supabase SQL editor for an existing project.
-
 alter table public.profiles
 add column if not exists avatar_path text;
 

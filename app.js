@@ -1,5 +1,5 @@
-const AUTH_STORAGE_KEY = "finance-auth-v1";
-const LEGACY_FINANCE_STORAGE_KEY = "finance-summary-v1";
+import { createSerializedExecutor, createStateConflictError } from "./state-persistence.js";
+
 const THEME_KEY = "finance-theme";
 const SIDEBAR_COLLAPSE_KEY = "finance-sidebar-collapsed";
 const SUPABASE_URL = "https://ixxtzlrrpitsnskhnsew.supabase.co";
@@ -158,6 +158,7 @@ const DEFAULT_CRYPTO_CURRENCY_OPTIONS = [
 const LEGACY_FIAT_CURRENCIES = ["USD", "EUR", "CNY", "HKD", "THB", "GBP", "CHF", "JPY", "AED", "TRY"];
 const YEAR_SELECT_START = 2018;
 const YEAR_SELECT_FUTURE_OFFSET = 5;
+const STATE_SCHEMA_VERSION = 2;
 
 let state = {
   records: [],
@@ -185,8 +186,13 @@ let assetSortable = null;
 let authState = {
   provider: "supabase",
   user: null,
+  financeVersion: null,
+  financeUpdatedAt: null,
+  financeUsesVersion: true,
 };
+const runPersistTask = createSerializedExecutor();
 const AVATAR_BUCKET = "avatars";
+const GOAL_IMAGE_BUCKET = "goal-images";
 const AVATAR_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
 const AVATAR_MAX_PIXELS = 24_000_000;
 const AVATAR_OUTPUT_SIZE = 512;
@@ -196,7 +202,10 @@ const GOAL_IMAGE_MAX_WIDTH = 1200;
 const GOAL_IMAGE_MAX_HEIGHT = 800;
 let authMode = "login";
 let editingGoalId = "";
-let goalImageDraft = "";
+let goalImagePathDraft = "";
+let goalImagePreviewUrl = "";
+let goalImagePendingBlob = null;
+const goalImageUrlCache = new Map();
 let passwordRecoveryActive = detectPasswordRecoveryRedirect();
 let mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
 let mobileHeaderDirection = 0;
@@ -244,7 +253,6 @@ const els = {
   activeGoalsCount: document.querySelector("#activeGoalsCount"),
   goalsSavedTotal: document.querySelector("#goalsSavedTotal"),
   goalsMonthlyTotal: document.querySelector("#goalsMonthlyTotal"),
-  activeGoalsSection: document.querySelector("#activeGoalsSection"),
   completedGoalsSection: document.querySelector("#completedGoalsSection"),
   activeGoalsLabel: document.querySelector("#activeGoalsLabel"),
   completedGoalsLabel: document.querySelector("#completedGoalsLabel"),
@@ -270,6 +278,7 @@ const els = {
   assetTotalCell: document.querySelector("#assetTotalCell"),
   historyRows: document.querySelector("#historyRows"),
   chart: document.querySelector("#totalChart"),
+  chartSummary: document.querySelector("#chartSummary"),
   chartTooltip: document.querySelector("#chartTooltip"),
   assetStructureRows: document.querySelector("#assetStructureRows"),
   structureTooltip: document.querySelector("#structureTooltip"),
@@ -313,7 +322,6 @@ const els = {
   accountNote: document.querySelector("#accountNote"),
   sidebarLoginBtn: document.querySelector("#sidebarLoginBtn"),
   sidebarUserBtn: document.querySelector("#sidebarUserBtn"),
-  sidebarUserAvatar: document.querySelector("#sidebarUserAvatar"),
   sidebarUserAvatarImage: document.querySelector("#sidebarUserAvatarImage"),
   sidebarUserAvatarInitials: document.querySelector("#sidebarUserAvatarInitials"),
   sidebarUserName: document.querySelector("#sidebarUserName"),
@@ -347,6 +355,7 @@ async function init() {
   await hydrateSession();
   void loadFiatCurrencyOptions();
   state = await loadState();
+  await migrateLegacyGoalImages();
   fillYearSelects({ preserveSelection: true });
   loadSelectedMonth({ preserveDraft: true });
   loadSelectedBudget();
@@ -495,10 +504,6 @@ async function fetchMarketJson(url) {
 function bindEvents() {
   els.logoSunButton?.addEventListener("click", playLogoSunAnimation);
   els.sidebarCollapseBtn?.addEventListener("click", toggleSidebarCollapsed);
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.addEventListener("click", () => selectTab(tab.dataset.tab));
-  });
-
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.addEventListener("click", () => selectTab(tab.dataset.sideTab));
   });
@@ -599,7 +604,6 @@ function bindEvents() {
   els.chart.addEventListener("click", handleChartClick);
   window.addEventListener("resize", () => {
     resetMobileHeaderVisibility();
-    updateSideNavIndicator({ instant: true });
     resetChartInteraction();
     hideStructureTooltip();
     drawChart();
@@ -696,13 +700,9 @@ function selectTab(name, options = {}) {
   if (els.pageTitle) els.pageTitle.textContent = copy.title;
   if (els.pageSubtitle) els.pageSubtitle.textContent = copy.subtitle;
   toggleProfileMenu(false);
-  document.querySelectorAll(".tab").forEach((tab) => {
-    tab.classList.toggle("is-active", tab.dataset.tab === activeTab);
-  });
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.classList.toggle("is-active", tab.dataset.sideTab === activeTab);
   });
-  updateSideNavIndicator({ instant: options.updateUrl === false });
   document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("is-visible"));
   document.querySelector(`#${activeTab}Panel`).classList.add("is-visible");
   if (activeTab !== "goals" && els.goalDialog?.open) closeGoalDialog();
@@ -710,30 +710,6 @@ function selectTab(name, options = {}) {
   if (activeTab === "dashboard") {
     drawChart();
   }
-}
-
-function updateSideNavIndicator({ instant = false } = {}) {
-  const nav = document.querySelector(".side-nav");
-  const activeItem = nav?.querySelector(".side-nav-item.is-active");
-  if (!nav) return;
-  if (!activeItem) {
-    nav.classList.remove("has-indicator");
-    return;
-  }
-
-  window.requestAnimationFrame(() => {
-    const navRect = nav.getBoundingClientRect();
-    const itemRect = activeItem.getBoundingClientRect();
-    if (instant) nav.classList.add("is-positioning");
-    nav.style.setProperty("--nav-indicator-x", `${itemRect.left - navRect.left}px`);
-    nav.style.setProperty("--nav-indicator-y", `${itemRect.top - navRect.top}px`);
-    nav.style.setProperty("--nav-indicator-width", `${itemRect.width}px`);
-    nav.style.setProperty("--nav-indicator-height", `${itemRect.height}px`);
-    nav.classList.add("has-indicator");
-    if (instant) {
-      window.requestAnimationFrame(() => nav.classList.remove("is-positioning"));
-    }
-  });
 }
 
 function getTabFromUrl() {
@@ -779,6 +755,11 @@ async function saveSelectedMonth() {
     return;
   }
 
+  const previousRecords = state.records.map((record) => ({
+    ...record,
+    rows: cloneRows(record.rows),
+  }));
+  const previousRows = cloneRows(state.currentRows);
   const year = Number(els.yearInput.value);
   const month = Number(els.monthInput.value);
   const rows = readAssetRows();
@@ -801,12 +782,18 @@ async function saveSelectedMonth() {
 
   state.currentRows = cloneRows(rows);
   try {
+    setAuthButtonBusy(els.saveMonthBtn, true, "Сохраняем...");
     const result = await persist();
     renderAll();
     showSaveNotice(result?.remote ? "Данные сохранены в аккаунте" : "Данные сохранены только в этом браузере");
   } catch (error) {
+    state.records = previousRecords;
+    state.currentRows = previousRows;
+    renderAll();
     console.error("Save failed", error);
     showSaveNotice(error.message || "Не удалось сохранить данные", "error");
+  } finally {
+    setAuthButtonBusy(els.saveMonthBtn, false);
   }
 }
 
@@ -1092,6 +1079,7 @@ async function saveSelectedBudget() {
   }
   if (!budgetDraft) return;
 
+  const previousBudgets = state.budgets.map((budget) => cloneBudgetRecord(budget));
   const nextBudget = normalizeBudgetRecord({
     ...budgetDraft,
     savedAt: new Date().toISOString(),
@@ -1110,6 +1098,7 @@ async function saveSelectedBudget() {
     renderBudget();
     showSaveNotice(result?.remote ? "Бюджет сохранен в аккаунте" : "Бюджет сохранен в этом браузере");
   } catch (error) {
+    state.budgets = previousBudgets;
     console.error("Budget save failed", error);
     showSaveNotice(error.message || "Не удалось сохранить бюджет", "error");
   } finally {
@@ -1120,6 +1109,7 @@ async function saveSelectedBudget() {
 function renderGoals() {
   if (!els.activeGoalsGrid || !els.completedGoalsGrid) return;
   const goals = Array.isArray(state.goals) ? state.goals : [];
+  void hydrateGoalImageUrls(goals);
   const activeGoals = goals.filter((goal) => !goal.completed);
   const completedGoals = goals.filter((goal) => goal.completed);
   const activeSaved = activeGoals.reduce((total, goal) => total + goal.savedAmount, 0);
@@ -1145,8 +1135,9 @@ function renderGoalCard(goal) {
   const monthsLeft = !goal.completed && remaining > 0 && goal.monthlyContribution > 0
     ? Math.ceil(remaining / goal.monthlyContribution)
     : 0;
-  const image = goal.imageData
-    ? `<img src="${escapeHtml(goal.imageData)}" alt="${escapeHtml(goal.title)}" />`
+  const imageUrl = goal.imagePath ? goalImageUrlCache.get(goal.imagePath) : goal.imageData;
+  const image = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(goal.title)}" />`
     : `
       <div class="goal-card-placeholder" aria-hidden="true">
         <svg viewBox="0 0 24 24">
@@ -1239,7 +1230,11 @@ function openGoalDialog(goalId = "") {
   }
   const goal = state.goals.find((item) => item.id === goalId) || null;
   editingGoalId = goal?.id || "";
-  goalImageDraft = goal?.imageData || "";
+  resetGoalImageDraft();
+  goalImagePathDraft = goal?.imagePath || "";
+  goalImagePreviewUrl = goalImagePathDraft
+    ? goalImageUrlCache.get(goalImagePathDraft) || ""
+    : goal?.imageData || "";
   els.goalForm?.reset();
   els.goalNameInput.value = goal?.title || "";
   els.goalTargetInput.value = goal?.targetAmount || "";
@@ -1256,7 +1251,7 @@ function openGoalDialog(goalId = "") {
 function closeGoalDialog() {
   if (els.goalDialog?.open) els.goalDialog.close();
   editingGoalId = "";
-  goalImageDraft = "";
+  resetGoalImageDraft();
   els.goalForm?.reset();
   if (els.goalImageInput) els.goalImageInput.value = "";
   updateGoalImagePreview();
@@ -1289,13 +1284,27 @@ async function saveGoal(event) {
 
   const previousGoals = state.goals.map((goal) => ({ ...goal }));
   const existing = state.goals.find((goal) => goal.id === editingGoalId);
+  const goalId = existing?.id || createGoalId();
+  const previousImagePath = existing?.imagePath || "";
+  let uploadedImagePath = "";
+  setAuthButtonBusy(els.saveGoalBtn, true, "Сохраняем...");
+  if (goalImagePendingBlob) {
+    try {
+      uploadedImagePath = await uploadGoalImageBlob(goalId, goalImagePendingBlob);
+    } catch (error) {
+      console.error("Goal image upload failed", error);
+      showSaveNotice(getGoalImageErrorMessage(error), "error");
+      setAuthButtonBusy(els.saveGoalBtn, false);
+      return;
+    }
+  }
   const nextGoal = normalizeGoalState({
-    id: existing?.id || createGoalId(),
+    id: goalId,
     title,
     targetAmount,
     savedAmount,
     monthlyContribution,
-    imageData: goalImageDraft,
+    imagePath: uploadedImagePath || goalImagePathDraft,
     completed: existing?.completed || false,
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1308,13 +1317,24 @@ async function saveGoal(event) {
   }
 
   try {
-    setAuthButtonBusy(els.saveGoalBtn, true, "Сохраняем...");
     await persist();
+    if (uploadedImagePath) {
+      try {
+        const signedUrl = await createGoalImageUrl(uploadedImagePath);
+        goalImageUrlCache.set(uploadedImagePath, signedUrl);
+      } catch (error) {
+        console.warn("Goal image URL creation failed", error);
+      }
+    }
+    if (previousImagePath && previousImagePath !== nextGoal.imagePath) {
+      void removeGoalImages([previousImagePath]);
+    }
     renderGoals();
     closeGoalDialog();
     showSaveNotice(existing ? "Изменения сохранены" : "Цель создана");
   } catch (error) {
     state.goals = previousGoals;
+    if (uploadedImagePath) await removeGoalImages([uploadedImagePath]);
     console.error("Goal save failed", error);
     showSaveNotice(error.message || "Не удалось сохранить цель", "error");
   } finally {
@@ -1356,6 +1376,7 @@ async function deleteGoal(goalId) {
   renderGoals();
   try {
     await persist();
+    if (goal.imagePath) void removeGoalImages([goal.imagePath]);
     renderGoals();
     showSaveNotice("Цель удалена");
   } catch (error) {
@@ -1372,7 +1393,11 @@ async function handleGoalImageSelection(event) {
   if (!file) return;
   els.goalImageChooseBtn.disabled = true;
   try {
-    goalImageDraft = await prepareGoalImageData(file);
+    const prepared = await prepareGoalImageBlob(file);
+    if (goalImagePreviewUrl.startsWith("blob:")) URL.revokeObjectURL(goalImagePreviewUrl);
+    goalImagePendingBlob = prepared.blob;
+    goalImagePathDraft = "";
+    goalImagePreviewUrl = URL.createObjectURL(prepared.blob);
     updateGoalImagePreview();
   } catch (error) {
     console.error("Goal image processing failed", error);
@@ -1383,20 +1408,27 @@ async function handleGoalImageSelection(event) {
 }
 
 function removeGoalImageDraft() {
-  goalImageDraft = "";
+  resetGoalImageDraft();
   updateGoalImagePreview();
 }
 
 function updateGoalImagePreview() {
   if (!els.goalImagePreview || !els.goalImagePlaceholder || !els.goalImageRemoveBtn) return;
-  els.goalImagePreview.hidden = !goalImageDraft;
-  els.goalImagePlaceholder.hidden = Boolean(goalImageDraft);
-  els.goalImageRemoveBtn.hidden = !goalImageDraft;
-  if (goalImageDraft) els.goalImagePreview.src = goalImageDraft;
+  els.goalImagePreview.hidden = !goalImagePreviewUrl;
+  els.goalImagePlaceholder.hidden = Boolean(goalImagePreviewUrl);
+  els.goalImageRemoveBtn.hidden = !goalImagePreviewUrl;
+  if (goalImagePreviewUrl) els.goalImagePreview.src = goalImagePreviewUrl;
   else els.goalImagePreview.removeAttribute("src");
 }
 
-async function prepareGoalImageData(file) {
+function resetGoalImageDraft() {
+  if (goalImagePreviewUrl.startsWith("blob:")) URL.revokeObjectURL(goalImagePreviewUrl);
+  goalImagePathDraft = "";
+  goalImagePreviewUrl = "";
+  goalImagePendingBlob = null;
+}
+
+async function prepareGoalImageBlob(file) {
   const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
   if (!allowedTypes.has(file.type)) throw new Error("Выберите изображение JPG, PNG или WebP");
   if (file.size > GOAL_IMAGE_SOURCE_MAX_BYTES) throw new Error("Изображение должно быть не больше 10 МБ");
@@ -1421,21 +1453,98 @@ async function prepareGoalImageData(file) {
     context.drawImage(image.source, 0, 0, width, height);
     let blob = await canvasToBlob(canvas, "image/webp", 0.78);
     if (blob.type !== "image/webp") blob = await canvasToBlob(canvas, "image/jpeg", 0.8);
-    const dataUrl = await blobToDataUrl(blob);
-    if (dataUrl.length > 2_500_000) throw new Error("Изображение получилось слишком большим");
-    return dataUrl;
+    if (blob.size > 2_000_000) throw new Error("Изображение получилось слишком большим");
+    return { blob };
   } finally {
     image.release();
   }
 }
 
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Не удалось прочитать изображение"));
-    reader.readAsDataURL(blob);
-  });
+async function uploadGoalImageBlob(goalId, blob) {
+  ensureSupabaseClient();
+  const extension = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg";
+  const path = `${authState.user.id}/${goalId}-${Date.now()}.${extension}`;
+  const { error } = await supabaseClient.storage
+    .from(GOAL_IMAGE_BUCKET)
+    .upload(path, blob, {
+      contentType: blob.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+  if (error) throw error;
+  return path;
+}
+
+async function createGoalImageUrl(imagePath) {
+  if (!imagePath) return "";
+  ensureSupabaseClient();
+  const { data, error } = await supabaseClient.storage
+    .from(GOAL_IMAGE_BUCKET)
+    .createSignedUrl(imagePath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function hydrateGoalImageUrls(goals) {
+  if (!isAuthenticated()) return;
+  const paths = [...new Set(goals.map((goal) => goal.imagePath).filter(Boolean))]
+    .filter((path) => !goalImageUrlCache.has(path));
+  if (!paths.length) return;
+  paths.forEach((path) => goalImageUrlCache.set(path, ""));
+  const results = await Promise.allSettled(paths.map(async (path) => {
+    const signedUrl = await createGoalImageUrl(path);
+    goalImageUrlCache.set(path, signedUrl);
+  }));
+  if (results.some((result) => result.status === "fulfilled")) renderGoals();
+  const rejected = results.find((result) => result.status === "rejected");
+  if (rejected) console.warn("Goal image URL creation failed", rejected.reason);
+}
+
+async function removeGoalImages(paths) {
+  const uniquePaths = [...new Set(paths.filter(Boolean))];
+  if (!uniquePaths.length || !supabaseClient) return;
+  const { error } = await supabaseClient.storage.from(GOAL_IMAGE_BUCKET).remove(uniquePaths);
+  if (error) console.warn("Goal image cleanup failed", error);
+  uniquePaths.forEach((path) => goalImageUrlCache.delete(path));
+}
+
+async function migrateLegacyGoalImages() {
+  if (!isAuthenticated()) return;
+  const legacyGoals = state.goals.filter((goal) => goal.imageData && !goal.imagePath);
+  if (!legacyGoals.length) return;
+
+  const previousGoals = state.goals.map((goal) => ({ ...goal }));
+  const uploadedPaths = [];
+  try {
+    for (const goal of legacyGoals) {
+      const response = await fetch(goal.imageData);
+      const blob = await response.blob();
+      const imagePath = await uploadGoalImageBlob(goal.id, blob);
+      uploadedPaths.push(imagePath);
+      state.goals = state.goals.map((item) => item.id === goal.id
+        ? { ...item, imagePath, imageData: "", updatedAt: new Date().toISOString() }
+        : item);
+    }
+    await persist();
+    await hydrateGoalImageUrls(state.goals);
+    showSaveNotice("Изображения целей перенесены в защищенное хранилище");
+  } catch (error) {
+    state.goals = previousGoals;
+    await removeGoalImages(uploadedPaths);
+    console.warn("Legacy goal image migration failed", error);
+    showSaveNotice(getGoalImageErrorMessage(error), "error");
+  }
+}
+
+function getGoalImageErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (/bucket not found/i.test(message)) {
+    return "Хранилище изображений целей еще не настроено в Supabase";
+  }
+  if (/row-level security|unauthorized|forbidden/i.test(message)) {
+    return "Нет доступа к изображениям целей. Проверьте RLS-политики";
+  }
+  return message || "Не удалось сохранить изображение цели";
 }
 
 function createGoalId() {
@@ -2305,6 +2414,9 @@ function drawChart() {
   const records = getChartRecords();
   chartHitAreas = [];
   if (!records.length) {
+    if (els.chartSummary) {
+      els.chartSummary.textContent = "Нет данных. Сохраните первый месяц, чтобы увидеть динамику активов.";
+    }
     hideChartTooltip();
     ctx.fillStyle = getCssColor("--muted");
     ctx.font = `${isMobileChart ? 15 : 17}px Inter, Calibri, sans-serif`;
@@ -2317,9 +2429,13 @@ function drawChart() {
   const values = records.map((record) => record.total);
   const valueMin = Math.min(...values);
   const valueMax = Math.max(...values);
-  const valuePadding = Math.max((valueMax - valueMin) * 0.14, Math.abs(valueMax) * 0.025, 1);
-  const min = Math.max(0, valueMin - valuePadding);
-  const max = valueMax + valuePadding;
+  const min = Math.max(0, valueMin * 0.9);
+  const max = Math.max(valueMax * 1.1, min + 1);
+  if (els.chartSummary) {
+    const first = records[0];
+    const last = records.at(-1);
+    els.chartSummary.textContent = `Динамика активов с ${formatFullPeriod(first)} по ${formatFullPeriod(last)}: от ${formatMoney(first.total)} до ${formatMoney(last.total)}. Подробные значения доступны во вкладке «История».`;
+  }
   const plot = isMobileChart
     ? { left: 8, right: 8, top: 16, bottom: 14 }
     : { left: 12, right: 12, top: 20, bottom: 18 };
@@ -2544,10 +2660,6 @@ function getCssColor(name) {
 
 function getShortMonth(month) {
   return months[month].slice(0, 3);
-}
-
-function formatPeriod(record) {
-  return `${getShortMonth(record.month)} ${record.year}`;
 }
 
 function formatFullPeriod(record) {
@@ -2833,13 +2945,11 @@ function toggleSidebarCollapsed() {
   applySidebarCollapsed(isCollapsed);
   toggleProfileMenu(false);
   window.requestAnimationFrame(() => {
-    updateSideNavIndicator({ instant: true });
     resetChartInteraction();
     drawChart();
   });
   window.clearTimeout(sidebarTransitionTimer);
   sidebarTransitionTimer = window.setTimeout(() => {
-    updateSideNavIndicator({ instant: true });
     resetChartInteraction();
     drawChart();
   }, 300);
@@ -3541,6 +3651,9 @@ async function logoutAccount() {
   }
 
   authState.user = null;
+  authState.financeVersion = null;
+  authState.financeUpdatedAt = null;
+  goalImageUrlCache.clear();
   clearAuthPassword();
   setAuthMode("login");
   updateAccountStatus();
@@ -3570,17 +3683,23 @@ async function loadState() {
 }
 
 async function persist() {
-  if (isAuthenticated()) {
-    const result = await saveStateToSupabase(state);
-    state = normalizeState(result.state, { fallbackRecords: [] });
-    return { remote: true };
-  }
+  if (!isAuthenticated()) return { remote: false };
 
-  return { remote: false };
+  const userId = authState.user.id;
+  const snapshot = normalizeState(state, { fallbackRecords: [] });
+  return runPersistTask(async () => {
+    if (authState.user?.id !== userId) {
+      throw new Error("Аккаунт изменился до завершения сохранения");
+    }
+    const result = await saveStateToSupabase(snapshot);
+    updateFinanceRevision(result);
+    return { remote: true, version: result.version ?? null };
+  });
 }
 
 async function reloadStateFromAccount() {
   state = await loadStateFromSupabase();
+  await migrateLegacyGoalImages();
   loadSelectedMonth({ preserveDraft: true });
   loadSelectedBudget();
   renderAll();
@@ -3588,109 +3707,98 @@ async function reloadStateFromAccount() {
 
 async function loadStateFromSupabase() {
   ensureSupabaseClient();
-  const { data, error } = await supabaseClient
+  authState.financeVersion = null;
+  authState.financeUpdatedAt = null;
+  goalImageUrlCache.clear();
+  let { data, error } = await supabaseClient
     .from("finance_states")
-    .select("state")
+    .select("state, version, updated_at")
     .eq("user_id", authState.user.id)
     .maybeSingle();
+  authState.financeUsesVersion = error?.code !== "42703";
+  if (!authState.financeUsesVersion) {
+    ({ data, error } = await supabaseClient
+      .from("finance_states")
+      .select("state, updated_at")
+      .eq("user_id", authState.user.id)
+      .maybeSingle());
+  }
   if (error) throw error;
 
   if (!data) {
-    const initialState = await buildInitialAccountState();
-    const saved = await saveStateToSupabase(initialState);
-    clearLegacyBrowserStorage(authState.user.email);
+    const initialState = buildGuestState();
+    const saved = await createStateInSupabase(initialState);
+    updateFinanceRevision(saved);
     return normalizeState(saved.state, { fallbackRecords: [] });
   }
 
-  clearLegacyBrowserStorage(authState.user.email);
+  updateFinanceRevision(data);
   return normalizeState(data.state, { fallbackRecords: [] });
+}
+
+async function createStateInSupabase(value) {
+  ensureSupabaseClient();
+  const normalized = normalizeState(value, { fallbackRecords: [] });
+  const createdAt = new Date().toISOString();
+  const payload = {
+    user_id: authState.user.id,
+    state: normalized,
+    updated_at: createdAt,
+  };
+  if (authState.financeUsesVersion) payload.version = 1;
+  const { data, error } = await supabaseClient
+    .from("finance_states")
+    .insert(payload)
+    .select(authState.financeUsesVersion ? "state, version, updated_at" : "state, updated_at")
+    .single();
+  if (error) {
+    if (error.code === "23505") throw createStateConflictError();
+    throw error;
+  }
+  return data;
 }
 
 async function saveStateToSupabase(value) {
   ensureSupabaseClient();
   const normalized = normalizeState(value, { fallbackRecords: [] });
-  const { data, error } = await supabaseClient
+  const previousUpdatedAtMs = Date.parse(authState.financeUpdatedAt || "");
+  const nextUpdatedAt = new Date(Math.max(
+    Date.now(),
+    Number.isFinite(previousUpdatedAtMs) ? previousUpdatedAtMs + 1 : 0,
+  )).toISOString();
+  let query = supabaseClient
     .from("finance_states")
-    .upsert({
-      user_id: authState.user.id,
+    .update({
       state: normalized,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: "user_id",
+      ...(authState.financeUsesVersion ? { version: Number(authState.financeVersion) + 1 } : {}),
+      updated_at: nextUpdatedAt,
     })
-    .select("state")
-    .single();
+    .eq("user_id", authState.user.id);
+
+  if (authState.financeUsesVersion) {
+    const expectedVersion = Number(authState.financeVersion);
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 0) {
+      throw new Error("Версия данных не загружена. Обновите страницу и повторите попытку.");
+    }
+    query = query.eq("version", expectedVersion);
+  } else {
+    if (!authState.financeUpdatedAt) {
+      throw new Error("Ревизия данных не загружена. Обновите страницу и повторите попытку.");
+    }
+    query = query.eq("updated_at", authState.financeUpdatedAt);
+  }
+
+  const { data, error } = await query
+    .select(authState.financeUsesVersion ? "state, version, updated_at" : "state, updated_at")
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw createStateConflictError();
   return data;
 }
 
-function readBrowserAuthStore() {
-  try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return {
-      nextUserId: Number(parsed?.nextUserId || 1),
-      currentUserId: parsed?.currentUserId ? Number(parsed.currentUserId) : null,
-      users: Array.isArray(parsed?.users) ? parsed.users : [],
-      financeStates: parsed?.financeStates && typeof parsed.financeStates === "object" ? parsed.financeStates : {},
-    };
-  } catch {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    return { nextUserId: 1, currentUserId: null, users: [], financeStates: {} };
-  }
-}
-
-function getLegacyBrowserState(email) {
-  const store = readBrowserAuthStore();
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  const legacyUser = store.users.find((item) => String(item.email || "").toLowerCase() === normalizedEmail);
-  return legacyUser ? store.financeStates[String(legacyUser.id)] || null : null;
-}
-
-function clearLegacyBrowserStorage(email) {
-  try {
-    localStorage.removeItem(LEGACY_FINANCE_STORAGE_KEY);
-
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    if (!normalizedEmail) return;
-
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return;
-
-    const parsed = JSON.parse(raw);
-    const users = Array.isArray(parsed?.users) ? parsed.users : [];
-    const targetIds = users
-      .filter((item) => String(item.email || "").trim().toLowerCase() === normalizedEmail)
-      .map((item) => String(item.id));
-    if (!targetIds.length) return;
-
-    const financeStates = parsed?.financeStates && typeof parsed.financeStates === "object"
-      ? { ...parsed.financeStates }
-      : {};
-    targetIds.forEach((id) => delete financeStates[id]);
-    const remainingUsers = users.filter((item) => !targetIds.includes(String(item.id)));
-    const currentUserId = targetIds.includes(String(parsed?.currentUserId))
-      ? null
-      : parsed?.currentUserId || null;
-
-    if (!remainingUsers.length && !Object.keys(financeStates).length) {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      return;
-    }
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-      nextUserId: Number(parsed?.nextUserId || 1),
-      currentUserId,
-      users: remainingUsers,
-      financeStates,
-    }));
-  } catch {
-    try {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    } catch {
-      // Storage may be unavailable in privacy-restricted browser contexts.
-    }
-  }
+function updateFinanceRevision(data) {
+  authState.financeVersion = authState.financeUsesVersion ? Number(data?.version || 0) : null;
+  authState.financeUpdatedAt = String(data?.updated_at || "") || null;
 }
 
 function getUserProfile(user) {
@@ -3718,18 +3826,6 @@ function getDefaultUserProfile(email) {
 
 function getUserInitials(profile) {
   return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || "П";
-}
-
-async function buildInitialAccountState() {
-  const legacyState = getLegacyBrowserState(authState.user.email);
-  if (legacyState && !needsEmptyStateMigration(legacyState)) {
-    return normalizeState(legacyState, { fallbackRecords: [] });
-  }
-  return buildGuestState();
-}
-
-function needsEmptyStateMigration(value) {
-  return !Array.isArray(value?.records) || (!value.records.length && !value.currentRows?.length);
 }
 
 async function loadSupabaseUser(user) {
@@ -3856,6 +3952,7 @@ function normalizeState(value, options = {}) {
   }
 
   return {
+    schemaVersion: STATE_SCHEMA_VERSION,
     records,
     currentRows: cloneRows(currentRows),
     budgets: Array.from(budgetMap.values()).sort((a, b) => a.year - b.year || a.month - b.month),
@@ -4119,6 +4216,7 @@ function normalizeGoalState(goal) {
   const targetAmount = Number(goal?.targetAmount);
   if (!Number.isFinite(targetAmount) || targetAmount <= 0) return null;
   const imageData = String(goal?.imageData || "");
+  const imagePath = String(goal?.imagePath || "").trim().slice(0, 500);
   const hasSafeImage = /^data:image\/(?:jpeg|png|webp);base64,/i.test(imageData)
     && imageData.length <= 2_500_000;
   const completed = Boolean(goal?.completed);
@@ -4129,16 +4227,13 @@ function normalizeGoalState(goal) {
     targetAmount: Math.max(Math.round(targetAmount), 1),
     savedAmount: Math.max(Math.round(Number(goal?.savedAmount) || 0), 0),
     monthlyContribution: Math.max(Math.round(Number(goal?.monthlyContribution) || 0), 0),
-    imageData: hasSafeImage ? imageData : "",
+    imagePath,
+    imageData: !imagePath && hasSafeImage ? imageData : "",
     completed,
     createdAt: goal?.createdAt || new Date().toISOString(),
     updatedAt: goal?.updatedAt || goal?.createdAt || new Date().toISOString(),
     completedAt: completed ? goal?.completedAt || goal?.updatedAt || new Date().toISOString() : null,
   };
-}
-
-function isEmptyState(value) {
-  return !Array.isArray(value?.records) || value.records.length === 0;
 }
 
 function readAssetRows() {
@@ -4276,19 +4371,6 @@ function parseAssetDecimal(value) {
     .replace(/[^\d,.-]/g, "")
     .replace(",", ".");
   return Number.parseFloat(normalized) || 0;
-}
-
-function parseRussianNumber(value) {
-  if (value === null || value === undefined) return Number.NaN;
-  const normalized = String(value)
-    .replace(/\s/g, "")
-    .replace(/[^\d,.-]/g, "")
-    .replace(",", ".");
-  return Number.parseFloat(normalized);
-}
-
-function normalizeText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function formatMoney(value) {

@@ -19,6 +19,7 @@ const contentTypes = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
   ".ico": "image/x-icon",
 };
 
@@ -28,9 +29,24 @@ function resolvePath(urlPath) {
   return path.resolve(rootDir, relativePath);
 }
 
+function isInsideRoot(filePath) {
+  const relativePath = path.relative(rootDir, filePath);
+  return relativePath !== ""
+    && !relativePath.startsWith(`..${path.sep}`)
+    && relativePath !== ".."
+    && !path.isAbsolute(relativePath);
+}
+
 const server = http.createServer(async (req, res) => {
-  const filePath = resolvePath(req.url);
-  if (!filePath.startsWith(rootDir)) {
+  let filePath;
+  try {
+    filePath = resolvePath(req.url);
+  } catch {
+    res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Bad request");
+    return;
+  }
+  if (!isInsideRoot(filePath)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -57,6 +73,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`Static frontend listening on http://localhost:${port}`);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  server.listen(port, "127.0.0.1", () => {
+    console.log(`Static frontend listening on http://127.0.0.1:${port}`);
+  });
+}
+
+export { isInsideRoot, resolvePath };

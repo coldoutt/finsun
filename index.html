@@ -36,7 +36,6 @@
           </div>
         </div>
         <nav class="side-nav" aria-label="Основные разделы">
-          <span class="side-nav-indicator" aria-hidden="true"></span>
           <button class="side-nav-item is-active" type="button" data-side-tab="dashboard">
             <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 19V5" />
@@ -560,7 +559,14 @@
           </div>
           <div class="chart-layout">
             <div class="chart-shell">
-              <canvas id="totalChart" height="380"></canvas>
+              <canvas
+                id="totalChart"
+                height="380"
+                role="img"
+                aria-label="График динамики общей стоимости активов"
+                aria-describedby="chartSummary"
+              >Подробные данные графика доступны во вкладке «История».</canvas>
+              <p class="visually-hidden" id="chartSummary" aria-live="polite"></p>
               <div class="chart-tooltip" id="chartTooltip" hidden></div>
             </div>
           </div>
@@ -646,8 +652,16 @@
 
     <div class="structure-tooltip" id="structureTooltip" hidden></div>
     <div class="save-notice" id="saveNotice" hidden></div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
-    <script src="app.js?v=20260813-3"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"
+      integrity="sha384-faMlYZUtkJj+Sh6Bmu/L0GzPcraRWN6CW+9RH3GUrK/Z0WS9tgaNNt0tHiLxsbdb"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"
+      integrity="sha384-HZZ/fukV+9G8gwTNjN7zQDG0Sp7MsZy5DDN6VfY3Be7V9dvQpEpR2jF2HlyFUUjU"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="app.js?v=20260813-4"></script>
   </body>
 </html>

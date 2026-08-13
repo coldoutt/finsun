@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check": "node --check app.js && node --check state-persistence.js && node --check server/scripts/static-server.js",
     "metrics:update": "node server/scripts/update-static-metrics.js",
+    "test": "node --test",
     "web:start": "node server/scripts/static-server.js"
   }
 }
