@@ -5467,6 +5467,9 @@ body[data-theme="dark"] .sidebar-user:hover {
 
 #dashboardPanel.is-visible {
   display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  column-gap: 12px;
+  row-gap: 18px;
 }
 
 .summary-grid {
@@ -5733,7 +5736,7 @@ body[data-theme="dark"] .profile-menu {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  #dashboardPanel {
+  #dashboardPanel.is-visible {
     grid-template-columns: 1fr;
   }
 
