@@ -7257,9 +7257,13 @@ body[data-theme="dark"] .goal-dialog {
   }
 
   body.is-sidebar-collapsed .brand-mark {
-    top: 0;
+    top: 4px;
     left: 50%;
     transform: translateX(-50%);
+  }
+
+  body.is-sidebar-collapsed .brand-mark.is-sun-spinning {
+    animation-name: brand-sun-spin-centered;
   }
 
   body.is-sidebar-collapsed .brand-wordmark,
@@ -7332,6 +7336,31 @@ body[data-theme="dark"] .goal-dialog {
   .main-content,
   .profile-menu {
     transition-duration: 0.01ms !important;
+  }
+
+  body.is-sidebar-collapsed .brand-mark.is-sun-spinning {
+    animation: brand-sun-pulse-centered 0.28s ease;
+  }
+}
+
+@keyframes brand-sun-spin-centered {
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
+
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+
+@keyframes brand-sun-pulse-centered {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    transform: translateX(-50%) scale(1.08);
   }
 }
 
