@@ -10,7 +10,7 @@ const FRANKFURTER_API_URL = "https://api.frankfurter.dev/v2";
 const COINPAPRIKA_API_URL = "https://api.coinpaprika.com/v1";
 const MARKET_DATA_TIMEOUT_MS = 8000;
 const CRYPTO_SEARCH_DEBOUNCE_MS = 280;
-const APP_TABS = ["dashboard", "budget", "assets", "history", "settings"];
+const APP_TABS = ["dashboard", "budget", "goals", "assets", "history", "settings"];
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
@@ -163,6 +163,7 @@ let state = {
   records: [],
   currentRows: [],
   budgets: [],
+  goals: [],
 };
 let budgetDraft = null;
 let chartRange = "3y";
@@ -189,7 +190,13 @@ const AVATAR_BUCKET = "avatars";
 const AVATAR_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
 const AVATAR_MAX_PIXELS = 24_000_000;
 const AVATAR_OUTPUT_SIZE = 512;
+const GOAL_IMAGE_SOURCE_MAX_BYTES = 10 * 1024 * 1024;
+const GOAL_IMAGE_MAX_PIXELS = 24_000_000;
+const GOAL_IMAGE_MAX_WIDTH = 1200;
+const GOAL_IMAGE_MAX_HEIGHT = 800;
 let authMode = "login";
+let editingGoalId = "";
+let goalImageDraft = "";
 let passwordRecoveryActive = detectPasswordRecoveryRedirect();
 let mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
 let mobileHeaderDirection = 0;
@@ -232,6 +239,32 @@ const els = {
   budgetExpensePlanTotal: document.querySelector("#budgetExpensePlanTotal"),
   budgetExpenseActualTotal: document.querySelector("#budgetExpenseActualTotal"),
   budgetExpenseDifferenceTotal: document.querySelector("#budgetExpenseDifferenceTotal"),
+  addGoalBtn: document.querySelector("#addGoalBtn"),
+  activeGoalsCount: document.querySelector("#activeGoalsCount"),
+  goalsSavedTotal: document.querySelector("#goalsSavedTotal"),
+  goalsMonthlyTotal: document.querySelector("#goalsMonthlyTotal"),
+  activeGoalsSection: document.querySelector("#activeGoalsSection"),
+  completedGoalsSection: document.querySelector("#completedGoalsSection"),
+  activeGoalsLabel: document.querySelector("#activeGoalsLabel"),
+  completedGoalsLabel: document.querySelector("#completedGoalsLabel"),
+  activeGoalsGrid: document.querySelector("#activeGoalsGrid"),
+  completedGoalsGrid: document.querySelector("#completedGoalsGrid"),
+  goalDialog: document.querySelector("#goalDialog"),
+  goalForm: document.querySelector("#goalForm"),
+  goalDialogEyebrow: document.querySelector("#goalDialogEyebrow"),
+  goalDialogTitle: document.querySelector("#goalDialogTitle"),
+  goalDialogCloseBtn: document.querySelector("#goalDialogCloseBtn"),
+  goalCancelBtn: document.querySelector("#goalCancelBtn"),
+  goalNameInput: document.querySelector("#goalNameInput"),
+  goalTargetInput: document.querySelector("#goalTargetInput"),
+  goalSavedInput: document.querySelector("#goalSavedInput"),
+  goalMonthlyInput: document.querySelector("#goalMonthlyInput"),
+  goalImageInput: document.querySelector("#goalImageInput"),
+  goalImageChooseBtn: document.querySelector("#goalImageChooseBtn"),
+  goalImageRemoveBtn: document.querySelector("#goalImageRemoveBtn"),
+  goalImagePreview: document.querySelector("#goalImagePreview"),
+  goalImagePlaceholder: document.querySelector("#goalImagePlaceholder"),
+  saveGoalBtn: document.querySelector("#saveGoalBtn"),
   assetRows: document.querySelector("#assetRows"),
   assetTotalCell: document.querySelector("#assetTotalCell"),
   historyRows: document.querySelector("#historyRows"),
@@ -511,6 +544,23 @@ function bindEvents() {
   els.addBudgetIncomeBtn?.addEventListener("click", () => addBudgetRow("incomes"));
   els.addBudgetExpenseBtn?.addEventListener("click", () => addBudgetRow("expenses"));
   els.saveBudgetBtn?.addEventListener("click", saveSelectedBudget);
+  els.addGoalBtn?.addEventListener("click", () => openGoalDialog());
+  els.goalDialogCloseBtn?.addEventListener("click", closeGoalDialog);
+  els.goalCancelBtn?.addEventListener("click", closeGoalDialog);
+  els.goalForm?.addEventListener("submit", saveGoal);
+  els.goalImageChooseBtn?.addEventListener("click", () => els.goalImageInput?.click());
+  els.goalImageInput?.addEventListener("change", handleGoalImageSelection);
+  els.goalImageRemoveBtn?.addEventListener("click", removeGoalImageDraft);
+  [els.activeGoalsGrid, els.completedGoalsGrid].forEach((grid) => {
+    grid?.addEventListener("click", handleGoalGridClick);
+  });
+  els.goalDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeGoalDialog();
+  });
+  els.goalDialog?.addEventListener("click", (event) => {
+    if (event.target === els.goalDialog) closeGoalDialog();
+  });
 
   document.addEventListener("click", (event) => {
     if (!els.profileMenu?.hidden && !event.target.closest(".sidebar-account")) {
@@ -624,6 +674,11 @@ function selectTab(name, options = {}) {
       title: "Бюджет",
       subtitle: "Планируйте доходы и расходы, сравнивайте их с фактом и контролируйте свободный остаток.",
     },
+    goals: {
+      kicker: "Финансовые ориентиры",
+      title: "Цели",
+      subtitle: "Собирайте средства на важные планы и отслеживайте прогресс.",
+    },
     history: {
       kicker: "Финансовый архив",
       title: "История",
@@ -649,6 +704,7 @@ function selectTab(name, options = {}) {
   updateSideNavIndicator({ instant: options.updateUrl === false });
   document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("is-visible"));
   document.querySelector(`#${activeTab}Panel`).classList.add("is-visible");
+  if (activeTab !== "goals" && els.goalDialog?.open) closeGoalDialog();
   if (options.updateUrl !== false) updateTabUrl(activeTab);
   if (activeTab === "dashboard") {
     drawChart();
@@ -1060,9 +1116,343 @@ async function saveSelectedBudget() {
   }
 }
 
+function renderGoals() {
+  if (!els.activeGoalsGrid || !els.completedGoalsGrid) return;
+  const goals = Array.isArray(state.goals) ? state.goals : [];
+  const activeGoals = goals.filter((goal) => !goal.completed);
+  const completedGoals = goals.filter((goal) => goal.completed);
+  const activeSaved = activeGoals.reduce((total, goal) => total + goal.savedAmount, 0);
+  const activeMonthly = activeGoals.reduce((total, goal) => total + goal.monthlyContribution, 0);
+
+  els.activeGoalsCount.textContent = String(activeGoals.length);
+  els.goalsSavedTotal.textContent = formatMoney(activeSaved);
+  els.goalsMonthlyTotal.textContent = formatMoney(activeMonthly);
+  els.activeGoalsLabel.textContent = formatGoalCount(activeGoals.length);
+  els.completedGoalsLabel.textContent = formatGoalCount(completedGoals.length);
+  els.completedGoalsSection.hidden = completedGoals.length === 0;
+
+  els.activeGoalsGrid.innerHTML = activeGoals.length
+    ? activeGoals.map(renderGoalCard).join("")
+    : renderGoalsEmptyState();
+  els.completedGoalsGrid.innerHTML = completedGoals.map(renderGoalCard).join("");
+}
+
+function renderGoalCard(goal) {
+  const remaining = Math.max(goal.targetAmount - goal.savedAmount, 0);
+  const rawProgress = goal.targetAmount > 0 ? goal.savedAmount / goal.targetAmount : 0;
+  const progress = goal.completed ? 100 : Math.min(Math.max(rawProgress * 100, 0), 100);
+  const monthsLeft = !goal.completed && remaining > 0 && goal.monthlyContribution > 0
+    ? Math.ceil(remaining / goal.monthlyContribution)
+    : 0;
+  const image = goal.imageData
+    ? `<img src="${escapeHtml(goal.imageData)}" alt="${escapeHtml(goal.title)}" />`
+    : `
+      <div class="goal-card-placeholder" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="4" />
+          <path d="m14.5 9.5 5-5M16.5 4.5h3v3" />
+        </svg>
+      </div>
+    `;
+
+  return `
+    <article class="goal-card ${goal.completed ? "is-completed" : ""}" data-goal-id="${escapeHtml(goal.id)}">
+      <div class="goal-card-media">
+        ${image}
+        ${goal.completed ? "<span class=\"goal-complete-badge\">Достигнута</span>" : ""}
+        <div class="goal-card-icon-actions">
+          <button type="button" data-goal-action="edit" data-goal-id="${escapeHtml(goal.id)}" aria-label="Редактировать цель" title="Редактировать">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-.8 4 4-.8L18.5 7.9l-3.4-3.4Z" /><path d="m13.8 5.8 3.4 3.4" /></svg>
+          </button>
+          <button type="button" data-goal-action="delete" data-goal-id="${escapeHtml(goal.id)}" aria-label="Удалить цель" title="Удалить">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="goal-card-body">
+        <div class="goal-card-heading">
+          <h4>${escapeHtml(goal.title)}</h4>
+          <strong>${formatMoney(goal.targetAmount)}</strong>
+        </div>
+        <div class="goal-progress" aria-label="Прогресс ${Math.round(progress)} процентов">
+          <span style="width: ${progress.toFixed(2)}%"></span>
+        </div>
+        <div class="goal-progress-copy">
+          <span>${formatMoney(goal.savedAmount)} накоплено</span>
+          <strong>${Math.round(progress)} %</strong>
+        </div>
+        <div class="goal-card-details">
+          <div>
+            <span>Взнос в месяц</span>
+            <strong>${formatMoney(goal.monthlyContribution)}</strong>
+          </div>
+          <div>
+            <span>${goal.completed ? "Результат" : "Осталось"}</span>
+            <strong>${goal.completed ? "Цель достигнута" : formatMoney(remaining)}</strong>
+            ${monthsLeft ? `<small>≈ ${monthsLeft} мес.</small>` : ""}
+          </div>
+        </div>
+        <button class="goal-complete-button ${goal.completed ? "is-secondary" : ""}" type="button" data-goal-action="toggle-complete" data-goal-id="${escapeHtml(goal.id)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            ${goal.completed ? '<path d="m9 7-5 5 5 5" /><path d="M4 12h10a6 6 0 0 1 6 6" />' : '<path d="m5 12 4 4L19 6" />'}
+          </svg>
+          ${goal.completed ? "Вернуть в работу" : "Отметить выполненной"}
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function renderGoalsEmptyState() {
+  return `
+    <div class="goals-empty-state">
+      <span class="goals-empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="4" />
+          <path d="m14.5 9.5 5-5M16.5 4.5h3v3" />
+        </svg>
+      </span>
+      <strong>Пока нет активных целей</strong>
+      <button class="secondary-button" type="button" data-goal-action="create">Создать цель</button>
+    </div>
+  `;
+}
+
+function handleGoalGridClick(event) {
+  const button = event.target.closest("[data-goal-action]");
+  if (!button) return;
+  const action = button.dataset.goalAction;
+  const goalId = button.dataset.goalId || "";
+  if (action === "create") openGoalDialog();
+  if (action === "edit") openGoalDialog(goalId);
+  if (action === "delete") deleteGoal(goalId);
+  if (action === "toggle-complete") toggleGoalComplete(goalId);
+}
+
+function openGoalDialog(goalId = "") {
+  if (!isAuthenticated()) {
+    showSaveNotice("Войдите в аккаунт, чтобы создавать цели", "error");
+    return;
+  }
+  const goal = state.goals.find((item) => item.id === goalId) || null;
+  editingGoalId = goal?.id || "";
+  goalImageDraft = goal?.imageData || "";
+  els.goalForm?.reset();
+  els.goalNameInput.value = goal?.title || "";
+  els.goalTargetInput.value = goal?.targetAmount || "";
+  els.goalSavedInput.value = goal?.savedAmount || 0;
+  els.goalMonthlyInput.value = goal?.monthlyContribution || 0;
+  els.goalDialogEyebrow.textContent = goal ? "Редактирование" : "Новая цель";
+  els.goalDialogTitle.textContent = goal ? "Изменить цель" : "Создать цель";
+  els.saveGoalBtn.textContent = goal ? "Сохранить изменения" : "Сохранить цель";
+  updateGoalImagePreview();
+  if (!els.goalDialog.open) els.goalDialog.showModal();
+  window.requestAnimationFrame(() => els.goalNameInput?.focus());
+}
+
+function closeGoalDialog() {
+  if (els.goalDialog?.open) els.goalDialog.close();
+  editingGoalId = "";
+  goalImageDraft = "";
+  els.goalForm?.reset();
+  if (els.goalImageInput) els.goalImageInput.value = "";
+  updateGoalImagePreview();
+}
+
+async function saveGoal(event) {
+  event.preventDefault();
+  if (!isAuthenticated()) {
+    closeGoalDialog();
+    showSaveNotice("Войдите в аккаунт, чтобы сохранить цель", "error");
+    return;
+  }
+
+  const title = els.goalNameInput.value.trim();
+  const targetAmount = Math.round(Number(els.goalTargetInput.value));
+  const savedAmount = Math.round(Number(els.goalSavedInput.value));
+  const monthlyContribution = Math.round(Number(els.goalMonthlyInput.value));
+  if (!title || title.length > 80) {
+    showSaveNotice("Укажите название цели длиной до 80 символов", "error");
+    return;
+  }
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    showSaveNotice("Целевая сумма должна быть больше нуля", "error");
+    return;
+  }
+  if (!Number.isFinite(savedAmount) || savedAmount < 0 || !Number.isFinite(monthlyContribution) || monthlyContribution < 0) {
+    showSaveNotice("Суммы не могут быть отрицательными", "error");
+    return;
+  }
+
+  const previousGoals = state.goals.map((goal) => ({ ...goal }));
+  const existing = state.goals.find((goal) => goal.id === editingGoalId);
+  const nextGoal = normalizeGoalState({
+    id: existing?.id || createGoalId(),
+    title,
+    targetAmount,
+    savedAmount,
+    monthlyContribution,
+    imageData: goalImageDraft,
+    completed: existing?.completed || false,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: existing?.completedAt || null,
+  });
+  if (existing) {
+    state.goals = state.goals.map((goal) => goal.id === existing.id ? nextGoal : goal);
+  } else {
+    state.goals = [nextGoal, ...state.goals];
+  }
+
+  try {
+    setAuthButtonBusy(els.saveGoalBtn, true, "Сохраняем...");
+    await persist();
+    renderGoals();
+    closeGoalDialog();
+    showSaveNotice(existing ? "Изменения сохранены" : "Цель создана");
+  } catch (error) {
+    state.goals = previousGoals;
+    console.error("Goal save failed", error);
+    showSaveNotice(error.message || "Не удалось сохранить цель", "error");
+  } finally {
+    setAuthButtonBusy(els.saveGoalBtn, false);
+  }
+}
+
+async function toggleGoalComplete(goalId) {
+  if (!isAuthenticated()) return;
+  const index = state.goals.findIndex((goal) => goal.id === goalId);
+  if (index < 0) return;
+  const previousGoals = state.goals.map((goal) => ({ ...goal }));
+  const completed = !state.goals[index].completed;
+  state.goals[index] = {
+    ...state.goals[index],
+    completed,
+    completedAt: completed ? new Date().toISOString() : null,
+    updatedAt: new Date().toISOString(),
+  };
+  renderGoals();
+  try {
+    await persist();
+    renderGoals();
+    showSaveNotice(completed ? "Цель отмечена выполненной" : "Цель возвращена в работу");
+  } catch (error) {
+    state.goals = previousGoals;
+    renderGoals();
+    console.error("Goal status update failed", error);
+    showSaveNotice(error.message || "Не удалось обновить цель", "error");
+  }
+}
+
+async function deleteGoal(goalId) {
+  if (!isAuthenticated()) return;
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal || !window.confirm(`Удалить цель «${goal.title}»?`)) return;
+  const previousGoals = state.goals.map((item) => ({ ...item }));
+  state.goals = state.goals.filter((item) => item.id !== goalId);
+  renderGoals();
+  try {
+    await persist();
+    renderGoals();
+    showSaveNotice("Цель удалена");
+  } catch (error) {
+    state.goals = previousGoals;
+    renderGoals();
+    console.error("Goal deletion failed", error);
+    showSaveNotice(error.message || "Не удалось удалить цель", "error");
+  }
+}
+
+async function handleGoalImageSelection(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  els.goalImageChooseBtn.disabled = true;
+  try {
+    goalImageDraft = await prepareGoalImageData(file);
+    updateGoalImagePreview();
+  } catch (error) {
+    console.error("Goal image processing failed", error);
+    showSaveNotice(error.message || "Не удалось обработать изображение", "error");
+  } finally {
+    els.goalImageChooseBtn.disabled = false;
+  }
+}
+
+function removeGoalImageDraft() {
+  goalImageDraft = "";
+  updateGoalImagePreview();
+}
+
+function updateGoalImagePreview() {
+  if (!els.goalImagePreview || !els.goalImagePlaceholder || !els.goalImageRemoveBtn) return;
+  els.goalImagePreview.hidden = !goalImageDraft;
+  els.goalImagePlaceholder.hidden = Boolean(goalImageDraft);
+  els.goalImageRemoveBtn.hidden = !goalImageDraft;
+  if (goalImageDraft) els.goalImagePreview.src = goalImageDraft;
+  else els.goalImagePreview.removeAttribute("src");
+}
+
+async function prepareGoalImageData(file) {
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type)) throw new Error("Выберите изображение JPG, PNG или WebP");
+  if (file.size > GOAL_IMAGE_SOURCE_MAX_BYTES) throw new Error("Изображение должно быть не больше 10 МБ");
+
+  const image = await decodeAvatarImage(file);
+  try {
+    if (image.width * image.height > GOAL_IMAGE_MAX_PIXELS) {
+      throw new Error("Разрешение изображения слишком большое");
+    }
+    const scale = Math.min(
+      GOAL_IMAGE_MAX_WIDTH / image.width,
+      GOAL_IMAGE_MAX_HEIGHT / image.height,
+      1,
+    );
+    const width = Math.max(Math.round(image.width * scale), 1);
+    const height = Math.max(Math.round(image.height * scale), 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Браузер не смог обработать изображение");
+    context.drawImage(image.source, 0, 0, width, height);
+    let blob = await canvasToBlob(canvas, "image/webp", 0.78);
+    if (blob.type !== "image/webp") blob = await canvasToBlob(canvas, "image/jpeg", 0.8);
+    const dataUrl = await blobToDataUrl(blob);
+    if (dataUrl.length > 2_500_000) throw new Error("Изображение получилось слишком большим");
+    return dataUrl;
+  } finally {
+    image.release();
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Не удалось прочитать изображение"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function createGoalId() {
+  if (window.crypto?.randomUUID) return `goal-${window.crypto.randomUUID()}`;
+  return `goal-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function formatGoalCount(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const ending = mod10 === 1 && mod100 !== 11 ? "цель" : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? "цели" : "целей";
+  return `${count} ${ending}`;
+}
+
 function renderAll() {
   renderAssets();
   renderBudget();
+  renderGoals();
   renderHistory();
   renderMetrics();
   renderAssetStructure();
@@ -3462,6 +3852,9 @@ function normalizeState(value, options = {}) {
     records,
     currentRows: cloneRows(currentRows),
     budgets: Array.from(budgetMap.values()).sort((a, b) => a.year - b.year || a.month - b.month),
+    goals: Array.isArray(value?.goals)
+      ? value.goals.map(normalizeGoalState).filter(Boolean)
+      : [],
   };
 }
 
@@ -3715,6 +4108,28 @@ function normalizeBudgetRow(row) {
   };
 }
 
+function normalizeGoalState(goal) {
+  const targetAmount = Number(goal?.targetAmount);
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) return null;
+  const imageData = String(goal?.imageData || "");
+  const hasSafeImage = /^data:image\/(?:jpeg|png|webp);base64,/i.test(imageData)
+    && imageData.length <= 2_500_000;
+  const completed = Boolean(goal?.completed);
+
+  return {
+    id: String(goal?.id || createGoalId()),
+    title: String(goal?.title || "Без названия").trim().slice(0, 80) || "Без названия",
+    targetAmount: Math.max(Math.round(targetAmount), 1),
+    savedAmount: Math.max(Math.round(Number(goal?.savedAmount) || 0), 0),
+    monthlyContribution: Math.max(Math.round(Number(goal?.monthlyContribution) || 0), 0),
+    imageData: hasSafeImage ? imageData : "",
+    completed,
+    createdAt: goal?.createdAt || new Date().toISOString(),
+    updatedAt: goal?.updatedAt || goal?.createdAt || new Date().toISOString(),
+    completedAt: completed ? goal?.completedAt || goal?.updatedAt || new Date().toISOString() : null,
+  };
+}
+
 function isEmptyState(value) {
   return !Array.isArray(value?.records) || value.records.length === 0;
 }
@@ -3747,7 +4162,7 @@ function getAssetStructure(rows) {
 }
 
 function getStructureColor(index) {
-  const colors = ["#28c45d", "#27b6c4", "#64a0d8", "#d28a61", "#b58cff", "#e2c15b", "#f27594", "#8bcf68"];
+  const colors = ["#28c45d", "#27b6c4", "#64a0d8", "#43b98e", "#b58cff", "#e2c15b", "#f27594", "#8bcf68"];
   return colors[index % colors.length];
 }
 

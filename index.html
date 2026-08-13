@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260812-9" />
+    <link rel="stylesheet" href="styles.css?v=20260813-2" />
   </head>
   <body>
     <main class="app-shell">
@@ -51,6 +51,15 @@
               <path d="M14 3.5A7.5 7.5 0 0 1 20.5 10H14Z" />
             </svg>
             Бюджет
+          </button>
+          <button class="side-nav-item" type="button" data-side-tab="goals">
+            <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8" />
+              <circle cx="12" cy="12" r="4" />
+              <path d="m14.5 9.5 5-5" />
+              <path d="M16.5 4.5h3v3" />
+            </svg>
+            Цели
           </button>
           <button class="side-nav-item" type="button" data-side-tab="assets">
             <svg class="side-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -358,6 +367,53 @@
         </div>
       </section>
 
+      <section class="panel" id="goalsPanel" aria-label="Цели">
+        <div class="goals-toolbar">
+          <div>
+            <span class="goals-eyebrow">Финансовые ориентиры</span>
+            <h2>Цели</h2>
+            <p>Крупные покупки, путешествия и другие планы в одном месте.</p>
+          </div>
+          <button class="primary-button goals-create-button" id="addGoalBtn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Новая цель
+          </button>
+        </div>
+
+        <div class="goals-summary" aria-label="Итоги целей">
+          <div>
+            <span>Активные цели</span>
+            <strong id="activeGoalsCount">0</strong>
+          </div>
+          <div>
+            <span>Накоплено</span>
+            <strong id="goalsSavedTotal">0 ₽</strong>
+          </div>
+          <div>
+            <span>План в месяц</span>
+            <strong id="goalsMonthlyTotal">0 ₽</strong>
+          </div>
+        </div>
+
+        <div class="goals-section" id="activeGoalsSection">
+          <div class="goals-section-head">
+            <h3>В работе</h3>
+            <span id="activeGoalsLabel">0 целей</span>
+          </div>
+          <div class="goals-grid" id="activeGoalsGrid"></div>
+        </div>
+
+        <div class="goals-section goals-completed-section" id="completedGoalsSection" hidden>
+          <div class="goals-section-head">
+            <h3>Завершенные</h3>
+            <span id="completedGoalsLabel">0 целей</span>
+          </div>
+          <div class="goals-grid" id="completedGoalsGrid"></div>
+        </div>
+      </section>
+
       <section class="panel" id="historyPanel">
         <div class="section-head">
           <div>
@@ -523,10 +579,75 @@
       </div>
     </main>
 
+    <dialog class="goal-dialog" id="goalDialog" aria-labelledby="goalDialogTitle">
+      <form class="goal-form" id="goalForm" method="dialog">
+        <div class="goal-dialog-head">
+          <div>
+            <span class="goals-eyebrow" id="goalDialogEyebrow">Новая цель</span>
+            <h2 id="goalDialogTitle">Создать цель</h2>
+          </div>
+          <button class="icon-button goal-dialog-close" id="goalDialogCloseBtn" type="button" aria-label="Закрыть">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m7 7 10 10M17 7 7 17" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="goal-image-editor" id="goalImageEditor">
+          <img id="goalImagePreview" alt="Предпросмотр изображения цели" hidden />
+          <div class="goal-image-placeholder" id="goalImagePlaceholder">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="8.5" cy="9" r="1.5" />
+              <path d="m4 17 5-5 4 4 2-2 5 4" />
+            </svg>
+          </div>
+          <div class="goal-image-actions">
+            <button class="secondary-button" id="goalImageChooseBtn" type="button">Выбрать изображение</button>
+            <button class="text-button" id="goalImageRemoveBtn" type="button" hidden>Удалить</button>
+          </div>
+          <input id="goalImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+        </div>
+
+        <div class="goal-form-grid">
+          <label class="goal-field goal-name-field">
+            Название
+            <input id="goalNameInput" type="text" maxlength="80" placeholder="Например, путешествие" required />
+          </label>
+          <label class="goal-field">
+            Целевая сумма
+            <span class="goal-money-input">
+              <input id="goalTargetInput" type="number" min="1" step="1" inputmode="numeric" required />
+              <span>₽</span>
+            </span>
+          </label>
+          <label class="goal-field">
+            Уже накоплено
+            <span class="goal-money-input">
+              <input id="goalSavedInput" type="number" min="0" step="1" inputmode="numeric" value="0" required />
+              <span>₽</span>
+            </span>
+          </label>
+          <label class="goal-field">
+            Взнос в месяц
+            <span class="goal-money-input">
+              <input id="goalMonthlyInput" type="number" min="0" step="1" inputmode="numeric" value="0" required />
+              <span>₽</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="goal-form-actions">
+          <button class="secondary-button" id="goalCancelBtn" type="button">Отмена</button>
+          <button class="primary-button" id="saveGoalBtn" type="submit">Сохранить цель</button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="structure-tooltip" id="structureTooltip" hidden></div>
     <div class="save-notice" id="saveNotice" hidden></div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
-    <script src="app.js?v=20260812-2"></script>
+    <script src="app.js?v=20260813-2"></script>
   </body>
 </html>
