@@ -47,7 +47,7 @@
   --radius: 4px;
   --sidebar-width: 264px;
   --sidebar-collapsed-width: 82px;
-  --sidebar-nav-gap: 18px;
+  --sidebar-nav-gap: 16px;
   font-family: "Inter", "Segoe UI", Arial, sans-serif;
 }
 
@@ -7383,9 +7383,25 @@ body[data-theme="dark"] .side-nav-item.is-active:hover,
 body[data-theme="dark"] .side-nav-item.is-active:focus-visible {
   border: 0;
   background: var(--surface-muted);
-  color: var(--ink);
+  color: var(--brand-green-strong);
   box-shadow: none;
   outline: 0;
+}
+
+.brand-mark,
+.brand-mark:hover,
+.brand-mark:active,
+body[data-theme="dark"] .brand-mark,
+body[data-theme="dark"] .brand-mark:hover,
+body[data-theme="dark"] .brand-mark:active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.brand-mark:focus-visible {
+  outline: 2px solid var(--brand-green-strong);
+  outline-offset: 2px;
 }
 
 .panel,
