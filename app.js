@@ -202,6 +202,7 @@ let mobileHeaderLastScrollY = Math.max(window.scrollY, 0);
 let mobileHeaderDirection = 0;
 let mobileHeaderTravel = 0;
 let mobileHeaderTicking = false;
+let sidebarTransitionTimer = null;
 
 const els = {
   sidebar: document.querySelector(".sidebar"),
@@ -2836,6 +2837,12 @@ function toggleSidebarCollapsed() {
     resetChartInteraction();
     drawChart();
   });
+  window.clearTimeout(sidebarTransitionTimer);
+  sidebarTransitionTimer = window.setTimeout(() => {
+    updateSideNavIndicator({ instant: true });
+    resetChartInteraction();
+    drawChart();
+  }, 300);
 }
 
 function applySidebarCollapsed(isCollapsed) {
