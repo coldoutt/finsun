@@ -7437,6 +7437,14 @@ body[data-theme="dark"] .brand-mark:active {
   outline-offset: 2px;
 }
 
+.sidebar-utility[data-side-tab="settings"],
+.sidebar-utility[data-side-tab="settings"]:hover,
+.sidebar-utility[data-side-tab="settings"]:focus-visible,
+.sidebar-utility[data-side-tab="settings"].is-active {
+  background: transparent;
+  box-shadow: none;
+}
+
 .panel,
 .metric,
 #dashboardPanel .chart-card,
