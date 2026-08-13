@@ -7191,7 +7191,7 @@ body[data-theme="dark"] .goal-dialog {
   .sidebar-utilities,
   body.is-sidebar-collapsed .sidebar-utilities {
     position: absolute;
-    top: 4px;
+    top: 26px;
     right: 8px;
     left: auto;
     display: flex;
@@ -7251,9 +7251,9 @@ body[data-theme="dark"] .goal-dialog {
   }
 
   body.is-sidebar-collapsed .sidebar-brand {
-    height: 118px;
-    min-height: 118px;
-    flex-basis: 118px;
+    height: 42px;
+    min-height: 42px;
+    flex-basis: 42px;
   }
 
   body.is-sidebar-collapsed .brand-mark {
@@ -7273,12 +7273,16 @@ body[data-theme="dark"] .goal-dialog {
   }
 
   body.is-sidebar-collapsed .sidebar-utilities {
-    top: 42px;
+    top: calc(100vh - 148px);
     right: auto;
     left: 50%;
     flex-direction: column;
     gap: 4px;
     transform: translateX(-50%);
+  }
+
+  body.is-sidebar-collapsed .sidebar-collapse {
+    order: -1;
   }
 
   body.is-sidebar-collapsed .sidebar-utility[data-side-tab="settings"] {
