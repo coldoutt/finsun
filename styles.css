@@ -2091,20 +2091,12 @@ body {
 }
 
 @keyframes brand-sun-spin {
-  0% {
-    transform: rotate(0deg) scale(1);
+  from {
+    transform: rotate(0deg);
   }
-  45% {
-    transform: rotate(210deg) scale(1.14);
-    box-shadow:
-      0 16px 34px color-mix(in srgb, var(--accent), transparent 72%),
-      0 0 0 8px color-mix(in srgb, var(--accent), transparent 88%);
-  }
-  78% {
-    transform: rotate(338deg) scale(0.97);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
+
+  to {
+    transform: rotate(360deg);
   }
 }
 
