@@ -23,6 +23,22 @@ tokens, or local account databases to the repository.
 - `npm run metrics:update` refreshes `metrics.json`.
 - There is no build step.
 
+## Git Synchronization
+
+The scheduled GitHub workflow updates `metrics.json` on `main` every morning.
+It can advance `origin/main` independently of local development.
+
+For every user-requested push:
+
+1. Commit the verified local changes.
+2. Run `git fetch origin`.
+3. Run `git rebase origin/main`.
+4. If the rebase changed application files, repeat the relevant verification.
+5. Run `git push origin main`.
+
+If a push is rejected because the remote advanced, repeat fetch and rebase;
+do not create a merge commit and never force-push `main`.
+
 ## Data Persistence
 
 Production persistence must remain browser -> Supabase:
